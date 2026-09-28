@@ -20,6 +20,12 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# DB
+*.db
+
+# Editor
+.vscode/
+
 # word and PDF
 *.docx
 *.pdf
