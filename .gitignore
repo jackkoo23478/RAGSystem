@@ -32,3 +32,6 @@ Thumbs.db
 # word and PDF
 *.docx
 *.pdf
+
+# uploaded files
+uploads/

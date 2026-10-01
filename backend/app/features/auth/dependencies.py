@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from app.features.auth.models import User
 from sqlalchemy.orm import Session
 import jwt
 
@@ -35,3 +36,13 @@ def get_current_user(
         raise credentials_error
 
     return user
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action",
+        )
+    return user
+            
