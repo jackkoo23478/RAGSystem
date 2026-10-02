@@ -10,3 +10,9 @@ class DocumentResponse(BaseModel):
     status: str = "pending"
     created_at: datetime
     uploaded_by: int  # User ID of the uploader
+    
+class DocumentStatusResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    status: str
