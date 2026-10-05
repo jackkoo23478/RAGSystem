@@ -22,3 +22,4 @@ class DocumentChunk(Base):
     content = Column(String, nullable=False)
     embedding = Column(String, nullable=True)  # Store embedding as a string (e.g., JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
+    page_number = Column(Integer,nullable=True)

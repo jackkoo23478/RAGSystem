@@ -6,7 +6,14 @@ from sqlalchemy.orm import Session
 
 from app.features.documents.exceptions import InvalidFileTypeError
 from app.features.documents.models import Document   
-from app.features.documents.repository import create_document, get_document_by_id, list_documents  
+from app.features.documents.repository import (
+    create_document,
+    delete_chunks_by_document,
+    delete_document as delete_document_record,
+    get_document_by_id,
+    list_documents,
+)
+from app.features.ingestion.exceptions import DocumentNotFoundError  
 
 UPLOAD_DIR = "data/uploads"
 ALLOWED_FILE_TYPES = ["pdf", "txt"]
@@ -24,6 +31,18 @@ def upload_document(db : Session, file : UploadFile , uploaded_by : int) -> Docu
     with open(file_path, "wb") as f:
         f.write(file.file.read())
     return create_document(db, original_name=file.filename, filename=stored_filename, file_type=file_extension, uploaded_by=uploaded_by)
-    
 
 
+def delete_document(db: Session, document_id: int) -> None:
+    document = get_document_by_id(db, document_id)
+    if document is None:
+        raise DocumentNotFoundError(f"Document with ID {document_id} not found.")
+
+    file_path = os.path.join(UPLOAD_DIR, document.filename)
+    # chunks first, then the document row, then the file: nothing is left pointing at a deleted parent
+    delete_chunks_by_document(db, document_id)
+    delete_document_record(db, document_id)
+    try:
+        os.remove(file_path)
+    except FileNotFoundError:
+        pass  # the record is gone either way; a missing file is not an error

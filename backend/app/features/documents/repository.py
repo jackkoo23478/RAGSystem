@@ -14,15 +14,24 @@ def delete_chunks_by_document(db : Session, document_id: int) -> None:
     db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).delete()
     db.commit()
     
-def create_chunks(db: Session, document_id: int, contents: list[str], embeddings: list[list[float]]) -> None:
+def create_chunks(
+    db: Session,
+    document_id: int,
+    contents: list[str],
+    embeddings: list[list[float]],
+    page_numbers: list[int | None] | None = None,
+) -> None:
+    if page_numbers is None:
+        page_numbers = [None] * len(contents)
     rows = [
         DocumentChunk(
             document_id=document_id,
             chunk_index=i,
             content=content,
             embedding=json.dumps(embedding),
+            page_number=page,
         )
-        for i, (content, embedding) in enumerate(zip(contents, embeddings))
+        for i, (content, embedding, page) in enumerate(zip(contents, embeddings, page_numbers))
     ]
     db.add_all(rows)
     db.commit()
