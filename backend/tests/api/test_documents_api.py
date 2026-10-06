@@ -1,3 +1,5 @@
+import pytest
+
 from app.features.documents.models import DocumentChunk
 
 PREFIX = "/api/v1/documents"
@@ -142,3 +144,25 @@ def test_delete_without_token_is_rejected(client, admin_headers, upload_dir):
 
 def test_delete_unknown_document_is_404(client, admin_headers):
     assert client.delete(f"{PREFIX}/999", headers=admin_headers).status_code == 404
+
+
+# ---------- reading documents requires a login ----------
+
+@pytest.mark.parametrize("path", ["", "/1", "/1/status"])
+def test_reading_documents_requires_a_token(client, path):
+    res = client.get(f"{PREFIX}{path}")
+
+    assert res.status_code in (401, 403)
+
+
+def test_unknown_document_without_a_token_is_not_a_404(client):
+    # authentication must come before the lookup, otherwise anyone could probe which ids exist
+    assert client.get(f"{PREFIX}/99999").status_code in (401, 403)
+
+
+def test_normal_user_can_read_documents(client, admin_headers, user_headers, upload_dir):
+    doc_id = upload(client, admin_headers).json()["id"]
+
+    assert client.get(PREFIX, headers=user_headers).status_code == 200
+    assert client.get(f"{PREFIX}/{doc_id}", headers=user_headers).status_code == 200
+    assert client.get(f"{PREFIX}/{doc_id}/status", headers=user_headers).status_code == 200

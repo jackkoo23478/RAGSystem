@@ -51,7 +51,7 @@ All paths are under `/api/v1`. Interactive docs: `http://127.0.0.1:8000/docs`.
 | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | public / logged in | Accounts and JWT |
 | `POST /documents/upload` | admin | Upload a PDF or TXT file |
 | `POST /documents/{id}/ingest` | admin | Extract, chunk, embed and store (safe to re-run) |
-| `GET /documents`, `GET /documents/{id}`, `GET /documents/{id}/status` | **anyone (no token)** | List and inspect documents. Known gap, see Limitations |
+| `GET /documents`, `GET /documents/{id}`, `GET /documents/{id}/status` | logged in | List and inspect documents |
 | `DELETE /documents/{id}` | admin | Removes the record, its chunks and the stored file |
 | `POST /rag/query` | logged in | Ask a question |
 | `GET /rag/queries` | logged in | Your own question history, newest first |
@@ -150,12 +150,6 @@ Not done yet: scanning for injection phrases at ingestion time (flag the documen
 - Chunking is by character count (500 with 50 overlap) within each page, so a sentence can be cut in half and
   sentences are not joined across pages.
 
-### Access control gap
-
-The three read endpoints for documents (`GET /documents`, `GET /documents/{id}`, `GET /documents/{id}/status`)
-do not require a token, so anyone who can reach the API can see document names and processing status
-(never the content). Upload, ingest and delete are admin-only. Fix: require a logged-in user on these routes.
-
 ### Other
 
 - No database migrations (Alembic). Schema changes to existing tables need a manual `ALTER TABLE`.
@@ -164,7 +158,6 @@ do not require a token, so anyone who can reach the API can see document names a
 
 ## Roadmap
 
-- Require login on the document read endpoints
 - Flag suspicious documents at ingestion time
 - An evaluation set (questions with expected answers) to compare models, prompts and chunking by numbers
 - Try a larger local model and a multilingual embedding model

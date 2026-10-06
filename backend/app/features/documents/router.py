@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from app.features.auth.dependencies import require_admin
+from app.features.auth.dependencies import get_current_user, require_admin
 from app.features.auth.models import User
 from app.features.documents import service
 from app.features.documents.exceptions import InvalidFileTypeError
@@ -23,12 +23,12 @@ async def upload_document(
     except InvalidFileTypeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("",response_model=list[DocumentResponse])
+@router.get("", response_model=list[DocumentResponse], dependencies=[Depends(get_current_user)])
 def get_all_documents(db : Session = Depends(get_db)):
     return list_documents(db)
 
 
-@router.get("/{document_id}", response_model=DocumentResponse)
+@router.get("/{document_id}", response_model=DocumentResponse, dependencies=[Depends(get_current_user)])
 def get_document(document_id: int, db: Session = Depends(get_db)):
     document = get_document_by_id(db, document_id)
     if document is None:
@@ -50,7 +50,7 @@ def ingest(
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Stored file is missing on disk.")
     
-@router.get("/{document_id}/status", response_model=DocumentStatusResponse)
+@router.get("/{document_id}/status", response_model=DocumentStatusResponse, dependencies=[Depends(get_current_user)])
 def get_document_status(document_id : int , db : Session = Depends(get_db)):
     document = get_document_by_id(db, document_id)
     if document is None:
