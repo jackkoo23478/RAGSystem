@@ -7,6 +7,8 @@ from app.db.base import Base
 # every model must be imported, otherwise create_all() does not know the table exists
 from app.features.auth.models import User
 from app.features.documents.models import Document, DocumentChunk
+from app.features.rag.models import Query, QueryCitation
+from app.features.rag.models import Query, QueryCitation
 
 
 @pytest.fixture
