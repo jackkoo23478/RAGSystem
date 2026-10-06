@@ -50,8 +50,8 @@ All paths are under `/api/v1`. Interactive docs: `http://127.0.0.1:8000/docs`.
 |---|---|---|
 | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | public / logged in | Accounts and JWT |
 | `POST /documents/upload` | admin | Upload a PDF or TXT file |
-| `POST /documents/{id}/ingest` | admin | Extract, chunk, embed and store (safe to re-run) |
-| `GET /documents`, `GET /documents/{id}`, `GET /documents/{id}/status` | **anyone (no token)** | List and inspect documents. Known gap, see Limitations |
+| `POST /documents/{id}/ingest` | admin | Extract, scan, chunk, embed and store (safe to re-run). A document that looks like it contains prompt injection is held as `flagged` (HTTP 422); after review, `?allow_suspicious=true` lets it through |
+| `GET /documents`, `GET /documents/{id}`, `GET /documents/{id}/status` | logged in | List and inspect documents |
 | `DELETE /documents/{id}` | admin | Removes the record, its chunks and the stored file |
 | `POST /rag/query` | logged in | Ask a question |
 | `GET /rag/queries` | logged in | Your own question history, newest first |
@@ -129,7 +129,15 @@ What exists today:
 - Answers without a valid `[n]` citation are rejected and never shown.
 - Every answer shows the cited source snippet, so a reader can see an injected instruction.
 
-Not done yet: scanning for injection phrases at ingestion time (flag the document for admin review), and testing a larger model.
+- At ingestion, the text is scanned for phrases aimed at an AI model ("ignore all previous instructions", "system notice", the Chinese equivalents).
+  One strong phrase, or two weak ones, marks the document `flagged`: it is not chunked or searched, and any chunks from an
+  earlier ingest are removed. An admin reviews it and can allow it with `?allow_suspicious=true`.
+  Checked against the three injection samples above (all caught) and the three real documents plus several risky-looking
+  normal sentences (no false alarm).
+
+The scanner is a speed bump, not a wall. A paraphrase ("pay no attention to what was written before") or letters spaced
+out ("I G N O R E") get past it, and a document that merely quotes an attack (a security training text, for example) is flagged and needs
+an admin's review. Not done yet: testing a larger model.
 
 ### Small local model
 
@@ -150,12 +158,6 @@ Not done yet: scanning for injection phrases at ingestion time (flag the documen
 - Chunking is by character count (500 with 50 overlap) within each page, so a sentence can be cut in half and
   sentences are not joined across pages.
 
-### Access control gap
-
-The three read endpoints for documents (`GET /documents`, `GET /documents/{id}`, `GET /documents/{id}/status`)
-do not require a token, so anyone who can reach the API can see document names and processing status
-(never the content). Upload, ingest and delete are admin-only. Fix: require a logged-in user on these routes.
-
 ### Other
 
 - No database migrations (Alembic). Schema changes to existing tables need a manual `ALTER TABLE`.
@@ -164,8 +166,6 @@ do not require a token, so anyone who can reach the API can see document names a
 
 ## Roadmap
 
-- Require login on the document read endpoints
-- Flag suspicious documents at ingestion time
 - An evaluation set (questions with expected answers) to compare models, prompts and chunking by numbers
 - Try a larger local model and a multilingual embedding model
 - Sentence-aware chunking
