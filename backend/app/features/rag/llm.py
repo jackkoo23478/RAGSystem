@@ -29,7 +29,7 @@ class OllamaClient:
         payload = {
             "model": self.model,
             "messages": messages,
-            "stream": False,          # 一次過攞完整答案,唔要逐字串流
+            "stream": False,          # one complete answer, not a stream of fragments
             "options": options,
         }
 

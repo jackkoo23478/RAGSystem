@@ -1,0 +1,62 @@
+.bar {
+  padding: 0.75rem 1.25rem 1rem;
+  background: var(--bg);
+}
+
+.form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.form:focus-within {
+  border-color: var(--accent);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  max-height: 9rem;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  field-sizing: content; /* grows with the text where the browser supports it */
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+.hint,
+.error {
+  max-width: 46rem;
+  margin: 0.4rem auto 0;
+  padding: 0 0.5rem;
+  font-size: 0.8rem;
+}
+
+.hint {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+}
+
+/* the keyboard shortcut hint means nothing on a touch screen */
+@media (hover: none) {
+  .hint {
+    display: none;
+  }
+}
