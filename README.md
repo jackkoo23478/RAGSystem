@@ -13,7 +13,8 @@ Built as a learning project, step by step, with an automated test suite (200+ te
 | Ingestion: extract (TXT, PDF with page numbers), chunk, embed, store | Done |
 | Retrieval + answer generation with citations (`/api/v1/rag/*`) | Done (backend) |
 | Query history and detail (per user) | Done (backend) |
-| Frontend | Login and session only. **The chat UI is not built yet** |
+| Frontend: login, chat with citations, question history, session handling | Done |
+| Frontend: admin pages (upload, document list, review of flagged documents) | Not started (admins use the API docs at `/docs` for now) |
 | Admin dashboard, DOCX support, reranking | Not started |
 
 ## Tech stack
@@ -22,7 +23,7 @@ Built as a learning project, step by step, with an automated test suite (200+ te
 - **Embeddings:** `sentence-transformers` (`all-MiniLM-L6-v2`, 384 dimensions), run locally
 - **LLM:** [Ollama](https://ollama.com) with `qwen2.5:3b`, run locally (no API key needed)
 - **Vector search:** cosine similarity with NumPy over the chunks stored in SQLite
-- **Frontend:** Next.js 16, React, react-hook-form, zod
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, react-hook-form, zod, CSS Modules, lucide-react icons
 - **Tests:** pytest (in-memory SQLite, fake embedder, fake LLM, `httpx.MockTransport`)
 
 ## How a question is answered
@@ -96,8 +97,20 @@ LLM_TIMEOUT_SECONDS=120
 ```bash
 cd frontend
 npm install
+cp .env.local.example .env.local   # NEXT_PUBLIC_API_URL must point at the backend
 npm run dev
 ```
+
+Open http://localhost:3000/login. The chat page is `/chat`. Start the backend and Ollama first.
+
+What the chat page does:
+
+- Answers show the passages they were based on (file name, page, text), expandable.
+- A question that gets no answer says why in plain words (nothing relevant found, no reliable answer, error).
+- The history (left, a drawer on phones) lists your own questions; opening one shows the saved answer and sources.
+- A missing, expired or rejected token sends you back to the login page. The cookie lasts 60 minutes, like the token.
+- Enter sends, Shift+Enter adds a line. Input-method composition (Chinese, Japanese) is respected.
+- Light and dark mode follow the system setting.
 
 ### Tests
 
@@ -162,14 +175,17 @@ an admin's review. Not done yet: testing a larger model.
 
 - No database migrations (Alembic). Schema changes to existing tables need a manual `ALTER TABLE`.
 - No rate limiting on `/rag/query`; each question runs the embedding model and the LLM.
-- The chat frontend is not built.
+- The frontend has no automated tests yet (type checking and manual browser checks only).
+- The model often answers in a different language from the question, and the small model skips citations often enough that
+  users will regularly see "no reliable answer".
 
 ## Roadmap
 
 - An evaluation set (questions with expected answers) to compare models, prompts and chunking by numbers
 - Try a larger local model and a multilingual embedding model
 - Sentence-aware chunking
-- Chat UI with citations, then an admin dashboard
+- Admin pages in the frontend (upload, document list, review of flagged documents), then a dashboard
+- Frontend tests
 - Alembic migrations, Docker
 
 ## Author
