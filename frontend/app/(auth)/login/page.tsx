@@ -6,8 +6,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
+import { Button } from '@/components/ui/Button'
 import { login } from '@/lib/api/auth'
 import { saveToken } from '@/lib/auth/session'
+
+import styles from './login.module.css'
 
 const loginSchema = z.object({
   email: z.string().min(1, { message: "Email is required" }).email({ message: "Invalid email address" }),
@@ -35,24 +38,49 @@ export default function LoginPage() {
       saveToken(tokens.access_token)
       router.push("/chat")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登入失敗")
+      setError(err instanceof Error ? err.message : "Login failed")
     }
   }
 
   return (
-    <main style={{ padding: '2rem' }}>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <input {...register('email')} placeholder="Email" />
-        {errors.email && <p>{errors.email.message}</p>}
+    <main className={styles.page}>
+      <form className={styles.card} onSubmit={handleSubmit(onSubmit)} noValidate>
+        <h1 className={styles.title}>Document Q&A</h1>
+        <p className={styles.subtitle}>Log in to ask questions about your documents.</p>
 
-        <input {...register('password')} type="password" placeholder="Password" />
-        {errors.password && <p>{errors.password.message}</p>}
+        <div className={styles.field}>
+          <label htmlFor="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            aria-invalid={errors.email ? "true" : undefined}
+            {...register('email')}
+          />
+          {errors.email && <p className={styles.fieldError}>{errors.email.message}</p>}
+        </div>
 
-        {error && <p>{error}</p>}
+        <div className={styles.field}>
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            aria-invalid={errors.password ? "true" : undefined}
+            {...register('password')}
+          />
+          {errors.password && <p className={styles.fieldError}>{errors.password.message}</p>}
+        </div>
 
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? '登入緊...' : '登入'}
-        </button>
+        {error && (
+          <p role="alert" className={styles.formError}>
+            {error}
+          </p>
+        )}
+
+        <Button type="submit" variant="primary" fullWidth disabled={isSubmitting}>
+          {isSubmitting ? 'Logging in...' : 'Log in'}
+        </Button>
       </form>
     </main>
   )
