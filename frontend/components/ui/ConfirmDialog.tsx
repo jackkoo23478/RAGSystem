@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react"
 import type { ReactNode } from "react"
 
 import { Button } from "./Button"
-import styles from "./confirm-dialog.module.css"
 
 interface ConfirmDialogProps {
   open: boolean
@@ -41,7 +40,7 @@ export function ConfirmDialog({
   return (
     <dialog
       ref={ref}
-      className={styles.dialog}
+      className="w-[min(28rem,calc(100vw-2rem))] rounded-card border border-line bg-surface p-6 text-ink shadow-card backdrop:bg-black/50"
       aria-labelledby="confirm-dialog-title"
       onCancel={(event) => {
         event.preventDefault() // Escape: let React state decide, so the two never disagree
@@ -51,15 +50,15 @@ export function ConfirmDialog({
         if (event.target === ref.current && !busy) onCancel() // a click on the dimmed backdrop
       }}
     >
-      <h2 id="confirm-dialog-title" className={styles.title}>
+      <h2 id="confirm-dialog-title" className="mb-3 text-[1.15rem] font-bold">
         {title}
       </h2>
-      <div className={styles.body}>{children}</div>
-      <div className={styles.actions}>
+      <div className="text-muted [&_p]:mb-3">{children}</div>
+      <div className="mt-5 flex justify-end gap-2">
         <Button variant="secondary" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
-        <Button variant="primary" className={tone === "danger" ? styles.danger : undefined} onClick={onConfirm} disabled={busy}>
+        <Button variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm} disabled={busy}>
           {busy ? "Working..." : confirmLabel}
         </Button>
       </div>

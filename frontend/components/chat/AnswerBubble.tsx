@@ -1,10 +1,10 @@
-import { Info, SearchX, Sparkles, TriangleAlert } from "lucide-react"
+import { Info, SearchX, TriangleAlert } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 import type { QueryResult, QueryStatus } from "@/lib/types/rag"
 
+import { AssistantRow } from "./AssistantRow"
 import { CitationList } from "./CitationList"
-import styles from "./chat.module.css"
 
 type NoAnswerStatus = Exclude<QueryStatus, "answered">
 
@@ -31,31 +31,22 @@ export function AnswerBubble({ result }: { result: QueryResult }) {
   // an "answered" result always has text; the extra check keeps a broken response from showing an empty bubble
   if (result.status === "answered" && result.answer) {
     return (
-      <div className={styles.row}>
-        <div className={styles.avatar} aria-hidden="true">
-          <Sparkles size={16} />
-        </div>
-        <div className={styles.bubble}>
-          <p className={styles.answer}>{result.answer}</p>
-          <CitationList citations={result.citations} />
-        </div>
-      </div>
+      <AssistantRow>
+        {/* pre-wrap keeps the line breaks of the answer */}
+        <p className="leading-[1.65] wrap-anywhere whitespace-pre-wrap">{result.answer}</p>
+        <CitationList citations={result.citations} />
+      </AssistantRow>
     )
   }
 
   const status: NoAnswerStatus = result.status === "answered" ? "failed" : result.status
   const Icon = NOTICE_ICON[status]
   return (
-    <div className={styles.row}>
-      <div className={styles.avatar} aria-hidden="true">
-        <Sparkles size={16} />
-      </div>
-      <div className={`${styles.bubble} ${styles.bubbleQuiet}`}>
-        <p className={styles.notice} role="status">
-          <Icon size={18} className={styles.noticeIcon} aria-hidden="true" />
-          {noAnswerMessage(status)}
-        </p>
-      </div>
-    </div>
+    <AssistantRow quiet>
+      <p className="flex items-start gap-[0.6rem] text-muted" role="status">
+        <Icon size={18} className="mt-[0.2rem] flex-none" aria-hidden="true" />
+        {noAnswerMessage(status)}
+      </p>
+    </AssistantRow>
   )
 }

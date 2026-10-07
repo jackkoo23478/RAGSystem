@@ -9,8 +9,6 @@ import { z } from "zod"
 
 import { Button } from "@/components/ui/Button"
 
-import styles from "./composer.module.css"
-
 // same limits as the backend (QueryRequest): 1 to 1000 characters after trimming
 const questionSchema = z.object({
   question: z
@@ -61,15 +59,19 @@ export function Composer({ onSend, disabled }: ComposerProps) {
   }
 
   return (
-    <div className={styles.bar}>
-      <form className={styles.form} onSubmit={submit}>
+    <div className="bg-page px-5 pt-3 pb-4">
+      <form
+        className="mx-auto flex max-w-[46rem] items-end gap-2 rounded-card border border-line bg-surface p-2 shadow-card focus-within:border-accent"
+        onSubmit={submit}
+      >
         <textarea
           {...field}
           ref={(element) => {
             registerRef(element)
             inputRef.current = element
           }}
-          className={styles.input}
+          // field-sizing-content: the box grows with the text where the browser supports it
+          className="max-h-36 min-w-0 flex-1 resize-none bg-transparent px-[0.6rem] py-2 text-ink outline-none field-sizing-content placeholder:text-muted"
           rows={1}
           aria-label="Your question"
           placeholder="Ask about your documents"
@@ -82,11 +84,14 @@ export function Composer({ onSend, disabled }: ComposerProps) {
         </Button>
       </form>
       {errors.question ? (
-        <p role="alert" className={styles.error}>
+        <p role="alert" className="mx-auto mt-[0.4rem] max-w-[46rem] px-2 text-[0.8rem] text-danger">
           {errors.question.message}
         </p>
       ) : (
-        <p className={styles.hint}>Enter to send, Shift+Enter for a new line</p>
+        // the keyboard shortcut hint means nothing on a touch screen
+        <p className="mx-auto mt-[0.4rem] max-w-[46rem] px-2 text-[0.8rem] text-muted [@media(hover:none)]:hidden">
+          Enter to send, Shift+Enter for a new line
+        </p>
       )}
     </div>
   )

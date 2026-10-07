@@ -11,11 +11,16 @@ import { useEndSession } from "@/hooks/useEndSession"
 import { isAuthError } from "@/lib/api/client"
 import { deleteDocument, flaggedSignals, ingestDocument, listDocuments, uploadDocument } from "@/lib/api/documents"
 import { getToken } from "@/lib/auth/session"
+import { cn } from "@/lib/cn"
 import type { DocumentItem } from "@/lib/types/document"
 
-import styles from "./admin-page.module.css"
-
 type Notice = { tone: "success" | "warning" | "error"; text: string }
+
+const NOTICE_TONES: Record<Notice["tone"], string> = {
+  success: "bg-success-soft text-success",
+  warning: "bg-warning-soft text-warning",
+  error: "bg-danger-soft text-danger",
+}
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong. Please try again later."
@@ -174,27 +179,30 @@ export default function DocumentsPage() {
 
   return (
     <main>
-      <h1 className={styles.title}>Documents</h1>
-      <p className={styles.lead}>
+      <h1 className="text-2xl font-semibold">Documents</h1>
+      <p className="mt-1 mb-5 text-muted">
         Upload PDF or TXT files and process them. Only processed documents are used to answer questions.
       </p>
 
       <UploadForm onUpload={handleUpload} disabled={uploading} />
 
       {notice && (
-        <div className={`${styles.notice} ${styles[notice.tone]}`} role={notice.tone === "error" ? "alert" : "status"}>
-          <NoticeIcon size={18} className={styles.noticeIcon} aria-hidden="true" />
-          <span className={styles.noticeText}>{notice.text}</span>
-          <Button variant="ghost" className={styles.dismiss} onClick={() => setNotice(null)} aria-label="Dismiss message">
+        <div
+          className={cn("mt-4 flex items-start gap-[0.6rem] rounded-control py-[0.6rem] pr-3 pl-4", NOTICE_TONES[notice.tone])}
+          role={notice.tone === "error" ? "alert" : "status"}
+        >
+          <NoticeIcon size={18} className="mt-[0.2rem] flex-none" aria-hidden="true" />
+          <span className="flex-1 wrap-anywhere">{notice.text}</span>
+          <Button variant="ghost" className="min-h-7 px-[0.4rem] text-inherit" onClick={() => setNotice(null)} aria-label="Dismiss message">
             <X size={16} aria-hidden="true" />
           </Button>
         </div>
       )}
 
-      <section className={styles.list} aria-busy={loading}>
-        {loading && <p className={styles.muted}>Loading documents…</p>}
+      <section className="mt-6" aria-busy={loading}>
+        {loading && <p className="text-muted">Loading documents…</p>}
         {loadError && (
-          <p role="alert" className={styles.loadError}>
+          <p role="alert" className="rounded-control bg-danger-soft px-4 py-3 text-danger">
             {loadError}
           </p>
         )}

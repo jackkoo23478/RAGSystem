@@ -1,22 +1,17 @@
-import { Sparkles } from "lucide-react"
+import { AssistantRow } from "./AssistantRow"
 
-import styles from "./chat.module.css"
+const DOT = "size-[0.45rem] rounded-full bg-muted animate-dots"
 
 // shown while the backend is searching the documents and the language model is writing
 export function ThinkingIndicator({ label }: { label: string }) {
   return (
-    <div className={styles.row} role="status">
-      <div className={styles.avatar} aria-hidden="true">
-        <Sparkles size={16} />
+    <AssistantRow quiet role="status">
+      <div className="flex gap-[0.3rem] py-[0.35rem]" aria-hidden="true">
+        <span className={DOT} />
+        <span className={`${DOT} [animation-delay:0.15s]`} />
+        <span className={`${DOT} [animation-delay:0.3s]`} />
       </div>
-      <div className={`${styles.bubble} ${styles.bubbleQuiet}`}>
-        <div className={styles.dots} aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
-        <span className={styles.srOnly}>{label}</span>
-      </div>
-    </div>
+      <span className="sr-only">{label}</span>
+    </AssistantRow>
   )
 }

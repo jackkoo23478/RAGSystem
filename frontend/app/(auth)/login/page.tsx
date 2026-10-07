@@ -10,7 +10,10 @@ import { Button } from '@/components/ui/Button'
 import { login } from '@/lib/api/auth'
 import { saveToken } from '@/lib/auth/session'
 
-import styles from './login.module.css'
+const FIELD = 'flex flex-col gap-[0.35rem]'
+const LABEL = 'text-sm font-medium'
+const INPUT = 'min-h-10 rounded-control border border-line bg-page px-3 text-ink aria-[invalid=true]:border-danger'
+const FIELD_ERROR = 'text-[0.8rem] text-danger'
 
 const loginSchema = z.object({
   email: z.string().min(1, { message: "Email is required" }).email({ message: "Invalid email address" }),
@@ -43,37 +46,47 @@ export default function LoginPage() {
   }
 
   return (
-    <main className={styles.page}>
-      <form className={styles.card} onSubmit={handleSubmit(onSubmit)} noValidate>
-        <h1 className={styles.title}>Document Q&A</h1>
-        <p className={styles.subtitle}>Log in to ask questions about your documents.</p>
+    <main className="grid min-h-dvh place-items-center p-6">
+      <form
+        className="flex w-full max-w-sm flex-col gap-4 rounded-card border border-line bg-surface p-8 shadow-card"
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+      >
+        <h1 className="text-2xl font-semibold">Document Q&A</h1>
+        <p className="-mt-2 mb-2 text-muted">Log in to ask questions about your documents.</p>
 
-        <div className={styles.field}>
-          <label htmlFor="email">Email</label>
+        <div className={FIELD}>
+          <label htmlFor="email" className={LABEL}>
+            Email
+          </label>
           <input
             id="email"
             type="email"
             autoComplete="email"
+            className={INPUT}
             aria-invalid={errors.email ? "true" : undefined}
             {...register('email')}
           />
-          {errors.email && <p className={styles.fieldError}>{errors.email.message}</p>}
+          {errors.email && <p className={FIELD_ERROR}>{errors.email.message}</p>}
         </div>
 
-        <div className={styles.field}>
-          <label htmlFor="password">Password</label>
+        <div className={FIELD}>
+          <label htmlFor="password" className={LABEL}>
+            Password
+          </label>
           <input
             id="password"
             type="password"
             autoComplete="current-password"
+            className={INPUT}
             aria-invalid={errors.password ? "true" : undefined}
             {...register('password')}
           />
-          {errors.password && <p className={styles.fieldError}>{errors.password.message}</p>}
+          {errors.password && <p className={FIELD_ERROR}>{errors.password.message}</p>}
         </div>
 
         {error && (
-          <p role="alert" className={styles.formError}>
+          <p role="alert" className="rounded-control bg-danger-soft px-3 py-[0.6rem] text-[0.9rem] text-danger">
             {error}
           </p>
         )}

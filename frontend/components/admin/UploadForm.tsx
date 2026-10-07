@@ -5,8 +5,7 @@ import type { DragEvent } from "react"
 import { UploadCloud } from "lucide-react"
 
 import { Button } from "@/components/ui/Button"
-
-import styles from "./upload-form.module.css"
+import { cn } from "@/lib/cn"
 
 const ALLOWED_EXTENSIONS = ["pdf", "txt"]
 
@@ -54,10 +53,14 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
   }
 
   return (
-    <section className={styles.card} aria-label="Upload a document">
+    <section className="rounded-card border border-line bg-surface p-5 shadow-card" aria-label="Upload a document">
       <label
         htmlFor={inputId}
-        className={dragging ? `${styles.drop} ${styles.dragging}` : styles.drop}
+        className={cn(
+          "relative flex cursor-pointer flex-col items-center gap-1 rounded-card border-2 border-dashed px-4 py-7 text-center text-muted transition-[border-color,background-color] duration-150",
+          "hover:border-accent hover:bg-accent-soft focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent",
+          dragging ? "border-accent bg-accent-soft" : "border-line",
+        )}
         onDragOver={(event) => {
           event.preventDefault()
           if (!disabled) setDragging(true)
@@ -66,28 +69,28 @@ export function UploadForm({ onUpload, disabled }: UploadFormProps) {
         onDrop={onDrop}
       >
         <UploadCloud size={28} aria-hidden="true" />
-        <span className={styles.dropTitle}>{file ? file.name : "Choose a file or drop it here"}</span>
-        <span className={styles.dropHint}>{file ? `${(file.size / 1024).toFixed(1)} KB` : "PDF or TXT"}</span>
+        <span className="font-medium wrap-anywhere text-ink">{file ? file.name : "Choose a file or drop it here"}</span>
+        <span className="text-[0.85rem]">{file ? `${(file.size / 1024).toFixed(1)} KB` : "PDF or TXT"}</span>
         <input
           ref={inputRef}
           id={inputId}
           type="file"
           accept=".pdf,.txt,application/pdf,text/plain"
-          className={styles.input}
+          className="absolute inset-0 size-full cursor-pointer opacity-0"
           disabled={disabled}
           onChange={(event) => choose(event.target.files?.[0])}
         />
       </label>
 
       {error && (
-        <p role="alert" className={styles.error}>
+        <p role="alert" className="mt-3 text-[0.9rem] text-danger">
           {error}
         </p>
       )}
 
-      <div className={styles.row}>
-        <label className={styles.check}>
-          <input type="checkbox" checked={processNow} onChange={(event) => setProcessNow(event.target.checked)} disabled={disabled} />
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <label className="flex items-center gap-2 text-[0.9rem]">
+          <input type="checkbox" className="m-[3px_3px_3px_4px]" checked={processNow} onChange={(event) => setProcessNow(event.target.checked)} disabled={disabled} />
           Process it right after uploading
         </label>
         <Button variant="primary" onClick={submit} disabled={disabled || !file}>
