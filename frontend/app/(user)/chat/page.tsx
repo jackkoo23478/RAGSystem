@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
-import { LogOut, Menu, Plus, TriangleAlert } from "lucide-react"
+import Link from "next/link"
+import { LogOut, Menu, Plus, ShieldCheck, TriangleAlert } from "lucide-react"
 
 import { AnswerBubble } from "@/components/chat/AnswerBubble"
 import { Composer } from "@/components/chat/Composer"
@@ -10,10 +10,11 @@ import { EmptyState } from "@/components/chat/EmptyState"
 import { HistoryList } from "@/components/chat/HistoryList"
 import { ThinkingIndicator } from "@/components/chat/ThinkingIndicator"
 import { Button } from "@/components/ui/Button"
+import { useEndSession } from "@/hooks/useEndSession"
 import { getMe } from "@/lib/api/auth"
 import { ApiError, isAuthError } from "@/lib/api/client"
 import { askQuestion, getQuery, listQueries } from "@/lib/api/rag"
-import { clearToken, getToken } from "@/lib/auth/session"
+import { getToken } from "@/lib/auth/session"
 import type { User } from "@/lib/types/auth"
 import type { QueryDetail, QueryHistoryItem, QueryResult } from "@/lib/types/rag"
 
@@ -43,7 +44,7 @@ function toResult(detail: QueryDetail): QueryResult {
 }
 
 export default function ChatPage() {
-  const router = useRouter()
+  const endSession = useEndSession()
   const [user, setUser] = useState<User | null>(null)
   const [history, setHistory] = useState<QueryHistoryItem[]>([])
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -55,12 +56,6 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const busy = isWaiting || isLoadingItem
-
-  // the token is missing, expired or rejected: forget it and go back to the login page
-  const endSession = useCallback(() => {
-    clearToken()
-    router.replace("/login")
-  }, [router])
 
   const refreshHistory = useCallback(
     async (token: string) => {
@@ -197,6 +192,12 @@ export default function ChatPage() {
           </Button>
           <h1 className={styles.title}>Document Q&A</h1>
           <div className={styles.account}>
+            {user?.role === "admin" && (
+              <Link href="/upload" className={styles.adminLink}>
+                <ShieldCheck size={16} aria-hidden="true" />
+                <span className={styles.adminLinkText}>Admin</span>
+              </Link>
+            )}
             {user && <span className={styles.email}>{user.email}</span>}
             <Button variant="ghost" onClick={endSession} aria-label="Log out">
               <LogOut size={16} aria-hidden="true" />

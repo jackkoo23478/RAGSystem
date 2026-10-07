@@ -1,0 +1,44 @@
+.dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.title {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.body {
+  color: var(--muted);
+}
+
+.body p {
+  margin: 0 0 0.75rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+/* a destructive action reads differently from a normal one; the specificity beats the Button's own colour */
+.actions .danger {
+  background: var(--danger);
+  color: var(--surface);
+}
+
+.actions .danger:hover:not(:disabled) {
+  background: var(--danger);
+  filter: brightness(0.92);
+}

@@ -71,6 +71,20 @@
   white-space: nowrap;
 }
 
+.adminLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.adminLink:hover {
+  background: var(--surface-2);
+}
+
 .messages {
   flex: 1;
   min-height: 0;
@@ -152,7 +166,8 @@
   }
 
   .email,
-  .logoutText {
+  .logoutText,
+  .adminLinkText {
     display: none;
   }
 
