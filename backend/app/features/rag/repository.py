@@ -1,8 +1,8 @@
 from app.features.rag.models import Query, QueryCitation
 
 
-def create_query(db, user_id, question, status, answer=None, citations=()) -> Query:
-    query = Query(user_id=user_id, question=question, status=status, answer=answer)
+def create_query(db, user_id, question, status, answer=None, citations=(), latency_ms=None) -> Query:
+    query = Query(user_id=user_id, question=question, status=status, answer=answer, latency_ms=latency_ms)
     try:
         db.add(query)
         db.flush()  # writes the row (not committed yet) so query.id has a value

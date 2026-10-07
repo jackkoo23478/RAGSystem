@@ -11,6 +11,7 @@ class Query(Base):
     question = Column(Text, nullable=False)
     answer = Column(Text, nullable=True)
     status = Column(String, nullable=False)
+    latency_ms = Column(Integer, nullable=True)  # how long answering took; empty for queries from before it was recorded
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

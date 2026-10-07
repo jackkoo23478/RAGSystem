@@ -153,3 +153,45 @@ def test_top_k_limits_how_many_sources_reach_the_model(db, user, policy):
     ask(db, user, llm, top_k=1)
 
     assert llm.calls[0][1]["content"].count("<source ") == 1
+
+
+# ---------- latency ----------
+
+def test_latency_is_the_time_between_receiving_the_question_and_saving_the_query(db, user, policy, monkeypatch):
+    clock = iter([100.0, 100.25])  # first call: question received, second call: query saved
+    monkeypatch.setattr("app.features.rag.service.time.perf_counter", lambda: next(clock))
+
+    result = ask(db, user, FakeLLM(answer="You get 14 days. [1]"))
+
+    assert db.get(Query, result.query_id).latency_ms == 250
+
+
+@pytest.mark.parametrize(
+    "answer, expected_status",
+    [
+        ("You get 14 days. [1]", "answered"),
+        (NO_ANSWER_TEXT, "no_evidence"),
+        ("PWNED", "invalid_answer"),
+    ],
+)
+def test_latency_is_recorded_for_every_outcome(db, user, policy, answer, expected_status):
+    result = ask(db, user, FakeLLM(answer=answer))
+
+    saved = db.get(Query, result.query_id)
+    assert saved.status == expected_status
+    assert isinstance(saved.latency_ms, int) and saved.latency_ms >= 0
+
+
+def test_latency_is_recorded_when_nothing_relevant_is_found(db, user):
+    result = ask(db, user, FakeLLM())
+
+    assert db.get(Query, result.query_id).latency_ms >= 0
+
+
+def test_latency_is_recorded_when_the_model_fails(db, user, policy):
+    with pytest.raises(LLMError):
+        ask(db, user, FakeLLM(error=LLMError("down")))
+
+    saved = db.query(Query).one()
+    assert saved.status == "failed"
+    assert saved.latency_ms >= 0
