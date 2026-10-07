@@ -15,7 +15,9 @@ Built as a learning project, step by step, with an automated test suite (200+ te
 | Query history and detail (per user) | Done (backend) |
 | Frontend: login, chat with citations, question history, session handling | Done |
 | Frontend: admin documents page (upload, process, delete, review of flagged documents) | Done |
-| Admin dashboard and logs, DOCX support, reranking | Not started |
+| Admin dashboard (counts, daily charts, recent questions) and question log with filters | Done |
+| Response time recorded for every question | Done |
+| DOCX support, reranking | Not started |
 
 ## Tech stack
 
@@ -23,7 +25,7 @@ Built as a learning project, step by step, with an automated test suite (200+ te
 - **Embeddings:** `sentence-transformers` (`all-MiniLM-L6-v2`, 384 dimensions), run locally
 - **LLM:** [Ollama](https://ollama.com) with `qwen2.5:3b`, run locally (no API key needed)
 - **Vector search:** cosine similarity with NumPy over the chunks stored in SQLite
-- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, react-hook-form, zod, Tailwind CSS v4, lucide-react icons
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, react-hook-form, zod, Tailwind CSS v4, Recharts, lucide-react icons
 - **Tests:** pytest (in-memory SQLite, fake embedder, fake LLM, `httpx.MockTransport`)
 
 ## How a question is answered
@@ -57,6 +59,11 @@ All paths are under `/api/v1`. Interactive docs: `http://127.0.0.1:8000/docs`.
 | `POST /rag/query` | logged in | Ask a question |
 | `GET /rag/queries` | logged in | Your own question history, newest first |
 | `GET /rag/queries/{id}` | logged in | One of your own questions with its citations (someone else's id returns 404) |
+| `GET /dashboard/summary` | admin | Document and question counts by status, answer rate, average response time |
+| `GET /dashboard/activity?days=N` | admin | Questions, answered questions and average response time per UTC day (1 to 90 days; empty days are zero) |
+| `GET /dashboard/recent-documents`, `GET /dashboard/recent-queries` | admin | The latest uploads and the latest questions |
+| `GET /logs` | admin | Every user's questions with the asker's email; filter by `status` and `search` (text in the question or the email), paged with `limit` and `offset` |
+| `GET /logs/{id}` | admin | One question with its answer and citations. An answer that failed the citation check is never shown, also not to admins |
 
 ## Setup
 
@@ -103,7 +110,7 @@ npm run dev
 
 Open http://localhost:3000/login. The chat page is `/chat`. Start the backend and Ollama first.
 
-The admin pages are under `/upload` ("Documents") and are only for users with the `admin` role. Promote a registered user with
+The admin pages are the dashboard (`/dashboard`), the documents page (`/upload`) and the question log (`/logs`). They are only for users with the `admin` role. Promote a registered user with
 `python -m scripts.create_admin <email>`; an admin sees an "Admin" link in the chat header. The page checks the role with the backend every time
 it opens, and the backend checks it again on every admin API call.
 
@@ -113,6 +120,17 @@ What the documents page does:
 - A table of all documents with their status (not processed, processing, ready, failed, needs review), process or retry, and delete with a confirmation.
 - A document held back because its text looks like instructions to an AI model shows "Needs review": the admin sees which rules matched and can
   process it anyway or delete it.
+
+What the dashboard (`/dashboard`) shows:
+
+- Number cards: documents, questions, answer rate and average response time.
+- Two line charts per UTC day (7, 14 or 30 days): questions with answered questions, and average response time. Each chart has a table with the same numbers.
+- The latest questions and documents.
+
+What the question log (`/logs`) does:
+
+- Lists every user's questions, newest first, with status and response time; search by text in the question or the email, filter by status, 20 per page.
+- Opening a question shows the answer and the passages it was based on.
 
 What the chat page does:
 
@@ -188,7 +206,8 @@ an admin's review. Not done yet: testing a larger model.
 
 ### Other
 
-- No database migrations (Alembic). Schema changes to existing tables need a manual `ALTER TABLE`.
+- No database migrations (Alembic). Schema changes to existing tables need a manual `ALTER TABLE`. A database created before response times were
+  recorded needs `ALTER TABLE queries ADD COLUMN latency_ms INTEGER;`; older questions then show no response time and are left out of the average.
 - No rate limiting on `/rag/query`; each question runs the embedding model and the LLM.
 - The frontend has no automated tests yet (type checking and manual browser checks only).
 - The model often answers in a different language from the question, and the small model skips citations often enough that
@@ -199,7 +218,6 @@ an admin's review. Not done yet: testing a larger model.
 - An evaluation set (questions with expected answers) to compare models, prompts and chunking by numbers
 - Try a larger local model and a multilingual embedding model
 - Sentence-aware chunking
-- Admin dashboard (counts, recent uploads) and a query log page
 - Frontend tests
 - Alembic migrations, Docker
 

@@ -203,7 +203,7 @@ export default function ChatPage() {
           <h1 className="flex-1 text-[1.05rem] font-semibold">Document Q&A</h1>
           <div className="flex min-w-0 items-center gap-2 text-sm text-muted">
             {user?.role === "admin" && (
-              <Link href="/upload" className={headerLink()}>
+              <Link href="/dashboard" className={headerLink()}>
                 <ShieldCheck size={16} aria-hidden="true" />
                 <span className="max-md:hidden">Admin</span>
               </Link>

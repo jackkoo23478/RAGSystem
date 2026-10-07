@@ -1,4 +1,5 @@
 import re
+import time
 from dataclasses import dataclass
 
 from app.features.ingestion.pipeline.embedder import embed_texts
@@ -26,6 +27,11 @@ class RagResult:
     citations: list[CitationOut]
 
 
+def visible_answer(query) -> str | None:
+    """Only a verified answer may leave the server. Raw text of invalid answers stays in the DB."""
+    return query.answer if query.status == "answered" else None
+
+
 def extract_cited_numbers(answer: str, max_n: int) -> list[int]:
     numbers = []
     for match in re.findall(r"\[(\d+)\]", answer):
@@ -44,25 +50,30 @@ def answer_question(db, user_id, question, llm, embed=embed_texts, top_k=4, min_
     if not question:
         raise ValueError("question must not be empty")
 
+    started = time.perf_counter()
+
+    def elapsed_ms() -> int:  # measured when the query is saved, so it covers search and model
+        return int((time.perf_counter() - started) * 1000)
+
     chunks = search_chunks(db, embed([question])[0], top_k=top_k, min_score=min_score)
 
     if not chunks:  # nothing relevant: refuse without calling the LLM
-        query = create_query(db, user_id, question, status="no_evidence")
+        query = create_query(db, user_id, question, status="no_evidence", latency_ms=elapsed_ms())
         return RagResult(query_id=query.id, status="no_evidence", answer=None, citations=[])
 
     try:
         answer = llm.generate(build_prompt(question, chunks))
     except LLMError:
-        create_query(db, user_id, question, status="failed")
+        create_query(db, user_id, question, status="failed", latency_ms=elapsed_ms())
         raise
 
     if is_refusal(answer):
-        query = create_query(db, user_id, question, status="no_evidence", answer=answer)
+        query = create_query(db, user_id, question, status="no_evidence", answer=answer, latency_ms=elapsed_ms())
         return RagResult(query_id=query.id, status="no_evidence", answer=None, citations=[])
 
     cited = extract_cited_numbers(answer, max_n=len(chunks))
     if not cited:  # no valid [n]: do not trust it, do not show it
-        query = create_query(db, user_id, question, status="invalid_answer", answer=answer)
+        query = create_query(db, user_id, question, status="invalid_answer", answer=answer, latency_ms=elapsed_ms())
         return RagResult(query_id=query.id, status="invalid_answer", answer=None, citations=[])
 
     used = [(n, chunks[n - 1]) for n in cited]  # [n] in the answer is chunks[n - 1] in the prompt
@@ -77,7 +88,9 @@ def answer_question(db, user_id, question, llm, embed=embed_texts, top_k=4, min_
         )
         for _, chunk in used
     ]
-    query = create_query(db, user_id, question, status="answered", answer=answer, citations=rows)
+    query = create_query(
+        db, user_id, question, status="answered", answer=answer, citations=rows, latency_ms=elapsed_ms()
+    )
     citations = [
         CitationOut(
             number=n,

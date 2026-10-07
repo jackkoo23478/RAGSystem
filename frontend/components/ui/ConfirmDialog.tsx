@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useRef } from "react"
 import type { ReactNode } from "react"
 
 import { Button } from "./Button"
+import { Modal } from "./Modal"
 
 interface ConfirmDialogProps {
   open: boolean
@@ -16,8 +16,6 @@ interface ConfirmDialogProps {
   children: ReactNode
 }
 
-// A modal built on the native <dialog>: the browser traps focus inside it, closes it on Escape
-// and makes the rest of the page inert, which is hard to get right by hand.
 export function ConfirmDialog({
   open,
   title,
@@ -28,28 +26,8 @@ export function ConfirmDialog({
   onCancel,
   children,
 }: ConfirmDialogProps) {
-  const ref = useRef<HTMLDialogElement>(null)
-
-  useEffect(() => {
-    const dialog = ref.current
-    if (!dialog) return
-    if (open && !dialog.open) dialog.showModal()
-    if (!open && dialog.open) dialog.close()
-  }, [open])
-
   return (
-    <dialog
-      ref={ref}
-      className="w-[min(28rem,calc(100vw-2rem))] rounded-card border border-line bg-surface p-6 text-ink shadow-card backdrop:bg-black/50"
-      aria-labelledby="confirm-dialog-title"
-      onCancel={(event) => {
-        event.preventDefault() // Escape: let React state decide, so the two never disagree
-        if (!busy) onCancel()
-      }}
-      onClick={(event) => {
-        if (event.target === ref.current && !busy) onCancel() // a click on the dimmed backdrop
-      }}
-    >
+    <Modal open={open} onClose={onCancel} dismissable={!busy} labelledBy="confirm-dialog-title">
       <h2 id="confirm-dialog-title" className="mb-3 text-[1.15rem] font-bold">
         {title}
       </h2>
@@ -62,6 +40,6 @@ export function ConfirmDialog({
           {busy ? "Working..." : confirmLabel}
         </Button>
       </div>
-    </dialog>
+    </Modal>
   )
 }

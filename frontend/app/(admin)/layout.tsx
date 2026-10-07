@@ -10,8 +10,11 @@ import { headerLink } from "@/components/ui/header-link"
 import { useEndSession } from "@/hooks/useEndSession"
 import { useRequireAdmin } from "@/hooks/useRequireAdmin"
 
-// the dashboard and logs pages are added to this list when they exist
-const NAV = [{ href: "/upload", label: "Documents" }]
+const NAV = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/upload", label: "Documents" },
+  { href: "/logs", label: "Logs" },
+]
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { user, error } = useRequireAdmin()
@@ -41,7 +44,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="min-h-dvh">
       <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-line bg-surface px-5 py-[0.6rem]">
         <span className="font-semibold">Admin</span>
-        <nav className="flex flex-1 gap-1" aria-label="Admin">
+        {/* on a phone the links move to their own row under the brand and the account buttons */}
+        <nav className="flex flex-1 gap-1 max-sm:order-3 max-sm:basis-full" aria-label="Admin">
           {NAV.map((item) => (
             <Link
               key={item.href}
@@ -53,7 +57,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="flex items-center gap-2 text-sm text-muted">
+        <div className="flex items-center gap-2 text-sm text-muted max-sm:ml-auto">
           <Link href="/chat" className={headerLink()}>
             <MessageSquare size={16} aria-hidden="true" />
             <span className="max-sm:hidden">Back to chat</span>

@@ -20,6 +20,9 @@
   --warning: #96600a;
   --warning-soft: #fdf3dc;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 8px rgba(16, 24, 40, 0.06);
+  /* chart series: the first two slots of the categorical palette, checked with the data-viz validator on this surface */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +45,8 @@
     --warning: #f2c261;
     --warning-soft: #33290f;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.35);
+    --series-1: #3987e5;
+    --series-2: #d95926;
   }
 }
 
@@ -68,6 +73,8 @@
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --shadow-card: var(--shadow);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
 }
 
 @theme {
