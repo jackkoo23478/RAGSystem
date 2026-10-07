@@ -98,3 +98,20 @@ def make_pdf():
         path.write_bytes(bytes(out))
 
     return _make_pdf
+
+
+@pytest.fixture
+def add_query(db):
+    """Save a query directly, so a test can choose the time and the latency (create_query cannot)."""
+
+    def _add_query(user, question="a question", status="answered", latency_ms=None, created_at=None, answer=None):
+        values = dict(user_id=user.id, question=question, status=status, latency_ms=latency_ms, answer=answer)
+        if created_at is not None:
+            values["created_at"] = created_at
+        query = Query(**values)
+        db.add(query)
+        db.commit()
+        db.refresh(query)
+        return query
+
+    return _add_query

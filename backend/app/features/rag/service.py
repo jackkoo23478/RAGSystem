@@ -27,6 +27,11 @@ class RagResult:
     citations: list[CitationOut]
 
 
+def visible_answer(query) -> str | None:
+    """Only a verified answer may leave the server. Raw text of invalid answers stays in the DB."""
+    return query.answer if query.status == "answered" else None
+
+
 def extract_cited_numbers(answer: str, max_n: int) -> list[int]:
     numbers = []
     for match in re.findall(r"\[(\d+)\]", answer):

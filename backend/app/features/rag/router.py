@@ -19,17 +19,12 @@ from app.features.rag.schemas import (
 router = APIRouter()
 
 
-def visible_answer(query) -> str | None:
-    """Only a verified answer may leave the server. Raw text of invalid answers stays in the DB."""
-    return query.answer if query.status == "answered" else None
-
-
 def to_history_item(query) -> QueryHistoryItem:
     return QueryHistoryItem(
         id=query.id,
         question=query.question,
         status=query.status,
-        answer=visible_answer(query),
+        answer=service.visible_answer(query),
         created_at=query.created_at,
     )
 
