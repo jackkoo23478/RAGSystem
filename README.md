@@ -14,8 +14,8 @@ Built as a learning project, step by step, with an automated test suite (200+ te
 | Retrieval + answer generation with citations (`/api/v1/rag/*`) | Done (backend) |
 | Query history and detail (per user) | Done (backend) |
 | Frontend: login, chat with citations, question history, session handling | Done |
-| Frontend: admin pages (upload, document list, review of flagged documents) | Not started (admins use the API docs at `/docs` for now) |
-| Admin dashboard, DOCX support, reranking | Not started |
+| Frontend: admin documents page (upload, process, delete, review of flagged documents) | Done |
+| Admin dashboard and logs, DOCX support, reranking | Not started |
 
 ## Tech stack
 
@@ -23,7 +23,7 @@ Built as a learning project, step by step, with an automated test suite (200+ te
 - **Embeddings:** `sentence-transformers` (`all-MiniLM-L6-v2`, 384 dimensions), run locally
 - **LLM:** [Ollama](https://ollama.com) with `qwen2.5:3b`, run locally (no API key needed)
 - **Vector search:** cosine similarity with NumPy over the chunks stored in SQLite
-- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, react-hook-form, zod, CSS Modules, lucide-react icons
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, react-hook-form, zod, Tailwind CSS v4, lucide-react icons
 - **Tests:** pytest (in-memory SQLite, fake embedder, fake LLM, `httpx.MockTransport`)
 
 ## How a question is answered
@@ -103,6 +103,17 @@ npm run dev
 
 Open http://localhost:3000/login. The chat page is `/chat`. Start the backend and Ollama first.
 
+The admin pages are under `/upload` ("Documents") and are only for users with the `admin` role. Promote a registered user with
+`python -m scripts.create_admin <email>`; an admin sees an "Admin" link in the chat header. The page checks the role with the backend every time
+it opens, and the backend checks it again on every admin API call.
+
+What the documents page does:
+
+- Upload a PDF or TXT file by choosing it or dropping it, and process it right away or later.
+- A table of all documents with their status (not processed, processing, ready, failed, needs review), process or retry, and delete with a confirmation.
+- A document held back because its text looks like instructions to an AI model shows "Needs review": the admin sees which rules matched and can
+  process it anyway or delete it.
+
 What the chat page does:
 
 - Answers show the passages they were based on (file name, page, text), expandable.
@@ -111,6 +122,10 @@ What the chat page does:
 - A missing, expired or rejected token sends you back to the login page. The cookie lasts 60 minutes, like the token.
 - Enter sends, Shift+Enter adds a line. Input-method composition (Chinese, Japanese) is respected.
 - Light and dark mode follow the system setting.
+
+Styling: the colours live as CSS variables in `frontend/app/globals.css` (one set for light, one for dark) and are exposed to Tailwind as
+utilities such as `bg-surface`, `text-muted` and `border-line`, so a colour changes in one place. Components carry their styles as utility
+classes; `cn()` in `frontend/lib/cn.ts` joins class names and lets a later class win over an earlier one.
 
 ### Tests
 
@@ -184,7 +199,7 @@ an admin's review. Not done yet: testing a larger model.
 - An evaluation set (questions with expected answers) to compare models, prompts and chunking by numbers
 - Try a larger local model and a multilingual embedding model
 - Sentence-aware chunking
-- Admin pages in the frontend (upload, document list, review of flagged documents), then a dashboard
+- Admin dashboard (counts, recent uploads) and a query log page
 - Frontend tests
 - Alembic migrations, Docker
 
