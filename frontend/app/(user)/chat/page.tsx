@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
-import { LogOut, Menu, Plus, TriangleAlert } from "lucide-react"
+import Link from "next/link"
+import { LogOut, Menu, Plus, ShieldCheck, TriangleAlert } from "lucide-react"
 
 import { AnswerBubble } from "@/components/chat/AnswerBubble"
 import { Composer } from "@/components/chat/Composer"
@@ -10,14 +10,15 @@ import { EmptyState } from "@/components/chat/EmptyState"
 import { HistoryList } from "@/components/chat/HistoryList"
 import { ThinkingIndicator } from "@/components/chat/ThinkingIndicator"
 import { Button } from "@/components/ui/Button"
+import { headerLink } from "@/components/ui/header-link"
+import { useEndSession } from "@/hooks/useEndSession"
 import { getMe } from "@/lib/api/auth"
 import { ApiError, isAuthError } from "@/lib/api/client"
 import { askQuestion, getQuery, listQueries } from "@/lib/api/rag"
-import { clearToken, getToken } from "@/lib/auth/session"
+import { getToken } from "@/lib/auth/session"
+import { cn } from "@/lib/cn"
 import type { User } from "@/lib/types/auth"
 import type { QueryDetail, QueryHistoryItem, QueryResult } from "@/lib/types/rag"
-
-import styles from "./chat-page.module.css"
 
 // what the screen shows, not what the API returns: `kind` tells the three apart
 type ChatMessage =
@@ -43,7 +44,7 @@ function toResult(detail: QueryDetail): QueryResult {
 }
 
 export default function ChatPage() {
-  const router = useRouter()
+  const endSession = useEndSession()
   const [user, setUser] = useState<User | null>(null)
   const [history, setHistory] = useState<QueryHistoryItem[]>([])
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -55,12 +56,6 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const busy = isWaiting || isLoadingItem
-
-  // the token is missing, expired or rejected: forget it and go back to the login page
-  const endSession = useCallback(() => {
-    clearToken()
-    router.replace("/login")
-  }, [router])
 
   const refreshHistory = useCallback(
     async (token: string) => {
@@ -164,18 +159,28 @@ export default function ChatPage() {
   }
 
   return (
-    <div className={styles.shell}>
-      {historyOpen && <div className={styles.backdrop} onClick={() => setHistoryOpen(false)} aria-hidden="true" />}
+    <div className="grid h-dvh grid-cols-[18rem_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)]">
+      {historyOpen && (
+        <div className="hidden max-md:fixed max-md:inset-0 max-md:z-20 max-md:block max-md:bg-black/45" onClick={() => setHistoryOpen(false)} aria-hidden="true" />
+      )}
 
+      {/* on a narrow screen the history is a drawer that slides in from the left */}
       <aside
-        className={historyOpen ? `${styles.sidebar} ${styles.sidebarOpen}` : styles.sidebar}
+        className={cn(
+          "flex flex-col gap-3 overflow-y-auto border-r border-line bg-surface p-4",
+          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:w-[min(18rem,85vw)]",
+          historyOpen
+            ? "max-md:visible max-md:translate-x-0 max-md:shadow-card max-md:transition-transform max-md:duration-200 max-md:ease-[ease]"
+            : // a closed drawer must not take keyboard focus, so it turns invisible once it has slid out
+              "max-md:invisible max-md:-translate-x-full max-md:[transition:transform_0.2s_ease,visibility_0s_linear_0.2s]",
+        )}
         aria-label="Question history"
       >
         <Button variant="primary" fullWidth onClick={startNewChat} disabled={busy}>
           <Plus size={16} aria-hidden="true" />
           New chat
         </Button>
-        <h2 className={styles.sidebarTitle}>History</h2>
+        <h2 className="mt-2 text-xs font-semibold tracking-wider text-muted uppercase">History</h2>
         <HistoryList
           items={history}
           selectedId={selectedId}
@@ -185,35 +190,43 @@ export default function ChatPage() {
         />
       </aside>
 
-      <main className={styles.main}>
-        <header className={styles.header}>
+      <main className="flex min-h-0 min-w-0 flex-col">
+        <header className="flex items-center gap-2 border-b border-line bg-surface px-5 py-[0.6rem] max-md:px-3 max-md:py-2">
           <Button
             variant="ghost"
-            className={styles.menuButton}
+            className="hidden px-[0.6rem] max-md:inline-flex"
             aria-label="Open question history"
             onClick={() => setHistoryOpen(true)}
           >
             <Menu size={18} aria-hidden="true" />
           </Button>
-          <h1 className={styles.title}>Document Q&A</h1>
-          <div className={styles.account}>
-            {user && <span className={styles.email}>{user.email}</span>}
+          <h1 className="flex-1 text-[1.05rem] font-semibold">Document Q&A</h1>
+          <div className="flex min-w-0 items-center gap-2 text-sm text-muted">
+            {user?.role === "admin" && (
+              <Link href="/upload" className={headerLink()}>
+                <ShieldCheck size={16} aria-hidden="true" />
+                <span className="max-md:hidden">Admin</span>
+              </Link>
+            )}
+            {user && <span className="max-w-64 truncate max-md:hidden">{user.email}</span>}
             <Button variant="ghost" onClick={endSession} aria-label="Log out">
               <LogOut size={16} aria-hidden="true" />
-              <span className={styles.logoutText}>Log out</span>
+              <span className="max-md:hidden">Log out</span>
             </Button>
           </div>
         </header>
 
-        <div className={styles.messages} aria-live="polite">
-          <div className={styles.thread}>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 max-md:px-3 max-md:py-4" aria-live="polite">
+          <div className="mx-auto max-w-[46rem]">
             {messages.length === 0 && !busy && <EmptyState onPick={sendQuestion} disabled={busy} />}
 
             {messages.map((message) => {
               if (message.kind === "user") {
                 return (
-                  <div key={message.id} className={styles.userRow}>
-                    <p className={styles.userBubble}>{message.text}</p>
+                  <div key={message.id} className="mt-5 flex justify-end">
+                    <p className="max-w-[85%] rounded-card rounded-br-[4px] bg-accent px-4 py-[0.6rem] wrap-anywhere whitespace-pre-wrap text-accent-fg">
+                      {message.text}
+                    </p>
                   </div>
                 )
               }
@@ -221,8 +234,8 @@ export default function ChatPage() {
                 return <AnswerBubble key={message.id} result={message.result} />
               }
               return (
-                <p key={message.id} role="alert" className={styles.error}>
-                  <TriangleAlert size={18} className={styles.errorIcon} aria-hidden="true" />
+                <p key={message.id} role="alert" className="my-5 flex items-start gap-[0.6rem] rounded-control bg-danger-soft px-4 py-3 text-danger">
+                  <TriangleAlert size={18} className="mt-[0.2rem] flex-none" aria-hidden="true" />
                   {message.text}
                 </p>
               )

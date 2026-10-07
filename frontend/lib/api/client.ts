@@ -2,11 +2,13 @@ const BASEURL = process.env.NEXT_PUBLIC_API_URL;
 
 export class ApiError extends Error {
     status: number
+    detail: unknown // the raw `detail` from the backend, for callers that need more than the message
 
-    constructor(message: string, status: number) {
+    constructor(message: string, status: number, detail: unknown = undefined) {
         super(message)
         this.name = "ApiError"
         this.status = status
+        this.detail = detail
     }
 }
 
@@ -33,11 +35,13 @@ export function detailToMessage(detail: unknown): string {
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
     let response: Response
+    // a file upload must NOT get a Content-Type: the browser adds one with the multipart boundary
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData
     try {
         response = await fetch(`${BASEURL}${path}`, {
             ...options,
             headers: {
-                "Content-Type": "application/json",
+                ...(isFormData ? {} : { "Content-Type": "application/json" }),
                 ...options.headers,
             },
         })
@@ -48,8 +52,9 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 
     if (!response.ok) {
         const errorBody = await response.json().catch(() => null)
-        throw new ApiError(detailToMessage(errorBody?.detail), response.status)
+        throw new ApiError(detailToMessage(errorBody?.detail), response.status, errorBody?.detail)
     }
+    if (response.status === 204) return undefined as T // "no content", e.g. after a delete: there is no body to parse
     return response.json() as Promise<T>
 }
 

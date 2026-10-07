@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* Design tokens. Every colour used in the app comes from here, so light and dark mode stay in step. */
 :root {
   --bg: #f6f7f9;
@@ -13,9 +15,11 @@
   --danger: #b4234f;
   --danger-soft: #fdeaf1;
   --notice-soft: #f1f3f8;
+  --success: #1a7f4b;
+  --success-soft: #e6f6ed;
+  --warning: #96600a;
+  --warning-soft: #fdf3dc;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 8px rgba(16, 24, 40, 0.06);
-  --radius: 14px;
-  --radius-sm: 8px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,33 +37,83 @@
     --danger: #ff86a9;
     --danger-soft: #3a1a27;
     --notice-soft: #1d212a;
+    --success: #5fd197;
+    --success-soft: #14301f;
+    --warning: #f2c261;
+    --warning-soft: #33290f;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.35);
   }
 }
 
-html {
-  color-scheme: light dark;
+/*
+  Tailwind class names for the tokens above, e.g. bg-surface, text-muted, border-line, shadow-card.
+  "inline" keeps the var(...) reference in the utility, so the dark-mode values above still apply.
+*/
+@theme inline {
+  --color-page: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-contrast);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-quiet: var(--notice-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --shadow-card: var(--shadow);
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+@theme {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --radius-card: 14px;
+  --radius-control: 8px;
+
+  /* the text sizes of the Tailwind scale, all with the same 1.5 line height the body text has */
+  --text-xs--line-height: 1.5;
+  --text-sm--line-height: 1.5;
+  --text-base--line-height: 1.5;
+  --text-lg--line-height: 1.5;
+  --text-xl--line-height: 1.5;
+  --text-2xl--line-height: 1.5;
+
+  /* the three dots of the "thinking" indicator */
+  --animate-dots: dots 1.2s infinite ease-in-out;
+
+  @keyframes dots {
+    0%,
+    80%,
+    100% {
+      opacity: 0.25;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
 
-/* keyboard users must always see where they are */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  /* keyboard users must always see where they are */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Tailwind resets every margin to 0, which would stop the browser centring a modal <dialog> */
+  dialog {
+    margin: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
