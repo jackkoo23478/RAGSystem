@@ -1,0 +1,75 @@
+name: CI
+
+# Runs on every pull request, and on every push to main (so a merge is checked too).
+# A push to a branch that has a pull request is covered by the pull request run, not run twice.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# a newer push to the same branch makes the older, still running check pointless
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Settings() needs these two to import the app. They exist only in this job and protect nothing.
+      DATABASE_URL: sqlite:///./ci.db
+      SECRET_KEY: ci-only-secret-key-0123456789-abcdefghijklmnop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # The default PyTorch wheel on Linux brings several GB of CUDA libraries. A runner has no GPU, so take the CPU build.
+      - name: Install CPU-only PyTorch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install the requirements
+        run: pip install -r requirements.txt
+
+      # "slow" tests load the real embedding model and need Ollama; they stay on your own machine
+      - name: Run the fast tests
+        run: pytest -m "not slow"
+
+  frontend:
+    name: Frontend type check and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # baked into the browser code at build time
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # ci installs exactly what package-lock.json says and fails when it does not match package.json
+      - name: Install the packages
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
