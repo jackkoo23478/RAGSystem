@@ -42,6 +42,13 @@ jobs:
       - name: Install the requirements
         run: pip install -r requirements.txt
 
+      # the migrations must build the whole database from nothing, and must match the models
+      - name: Migrations build an empty database
+        run: alembic upgrade head
+
+      - name: Models and migrations agree
+        run: alembic check
+
       # "slow" tests load the real embedding model and need Ollama; they stay on your own machine
       - name: Run the fast tests
         run: pytest -m "not slow"
