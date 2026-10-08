@@ -3,12 +3,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db.base import Base
-# every model must be imported, otherwise create_all() does not know the table exists
-from app.features.auth.models import User
-from app.features.documents.models import Document, DocumentChunk
-from app.features.rag.models import Query, QueryCitation
-from app.features.rag.models import Query, QueryCitation
+# importing it registers every model, otherwise create_all() does not know the table exists
+from app.db.all_models import Base, Query, User
 
 
 @pytest.fixture

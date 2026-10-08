@@ -80,12 +80,31 @@ All paths are under `/api/v1`. Interactive docs: `http://127.0.0.1:8000/docs`.
 cd backend
 pip install -r requirements.txt
 cp .env.example .env            # then set DATABASE_URL and SECRET_KEY
-python -m app.db.init_db
+alembic upgrade head              # create the tables (see "Database migrations" below)
 python -m scripts.create_admin you@example.com   # promote a registered user to admin
 uvicorn app.main:app --reload
 ```
 
 Run backend scripts as modules (`python -m ...`) from `backend/`, otherwise the `app` package is not importable.
+
+### Database migrations (Alembic)
+
+The structure of the database is kept in migration files under `backend/app/db/migrations/versions/`, one file per change, applied in order.
+A database remembers which one it is at (table `alembic_version`), so `upgrade` only applies the ones it is missing and keeps its data.
+Run these from `backend/`:
+
+```bash
+alembic upgrade head                                  # bring a database up to date (a new one is built from scratch)
+alembic revision --autogenerate -m "what changed"     # after changing a model: write the migration, then READ it
+alembic downgrade -1                                  # undo the last migration
+alembic current                                       # which version is this database at
+alembic check                                         # do the models and the migrations agree?
+```
+
+- A database created before Alembic was introduced (with `create_all`) already has the tables: run `alembic stamp head` once. It only records the version and changes no data.
+- SQLite cannot alter most things in place, so migrations run in batch mode (new table, copy the rows, swap).
+- Autogenerate misses some changes (a renamed column looks like a drop plus an add), so read the file before applying it.
+- The tests and CI fail when a model is changed without a migration (`tests/db/test_migrations.py`, `alembic check`).
 
 ### Environment variables (`backend/.env`)
 
@@ -215,8 +234,7 @@ an admin's review. Not done yet: testing a larger model.
 
 ### Other
 
-- No database migrations (Alembic). Schema changes to existing tables need a manual `ALTER TABLE`. A database created before response times were
-  recorded needs `ALTER TABLE queries ADD COLUMN latency_ms INTEGER;`; older questions then show no response time and are left out of the average.
+- Questions saved before the response time was recorded show no response time and are left out of the average.
 - No rate limiting on `/rag/query`; each question runs the embedding model and the LLM.
 - The frontend has no automated tests yet (type checking and manual browser checks only).
 - The model often answers in a different language from the question, and the small model skips citations often enough that
@@ -228,7 +246,7 @@ an admin's review. Not done yet: testing a larger model.
 - Try a larger local model and a multilingual embedding model
 - Sentence-aware chunking
 - Frontend tests
-- Alembic migrations, Docker
+- Docker
 
 ## Author
 
