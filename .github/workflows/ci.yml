@@ -80,3 +80,43 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  docker:
+    name: Docker build and start
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # docker compose refuses to start without it; this one exists only in this job and protects nothing
+      SECRET_KEY: ci-only-secret-key-0123456789-abcdefghijklmnop
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the images
+        run: docker compose build
+
+      # --wait: return when the backend reports healthy (its migrations ran and the server answers)
+      - name: Start the app
+        run: docker compose up -d --wait
+
+      - name: The backend answers
+        run: curl --fail --silent --show-error http://localhost:8000/
+
+      # a user can only be created if the migrations built the tables inside the container
+      - name: The database was built by the migrations
+        run: |
+          curl --fail --silent --show-error -X POST http://localhost:8000/api/v1/auth/register             -H "Content-Type: application/json"             -d '{"email":"ci@example.com","password":"ci-password-123"}'
+
+      - name: The frontend answers
+        run: curl --fail --silent --show-error --location --output /dev/null http://localhost:3000/login
+
+      - name: The backend accepts the frontend's address
+        run: |
+          curl --silent --show-error --include -X OPTIONS http://localhost:8000/api/v1/auth/login             -H "Origin: http://localhost:3000"             -H "Access-Control-Request-Method: POST"             -H "Access-Control-Request-Headers: content-type" | grep -i "access-control-allow-origin: http://localhost:3000"
+
+      - name: Logs of the containers (only when a step failed)
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop
+        if: always()
+        run: docker compose down --volumes

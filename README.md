@@ -74,6 +74,30 @@ All paths are under `/api/v1`. Interactive docs: `http://127.0.0.1:8000/docs`.
 - Python 3.11 and Node.js
 - [Ollama](https://ollama.com) with the model pulled: `ollama pull qwen2.5:3b`
 
+### Run everything with Docker
+
+The quickest way: the backend and the frontend each run in a container, with one command.
+
+Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) and [Ollama](https://ollama.com) with the model pulled (`ollama pull qwen2.5:3b`).
+Ollama is not part of the containers: it runs on your own machine and the backend reaches it as `host.docker.internal`.
+
+```bash
+cp .env.example .env              # then put a SECRET_KEY in it (the file says how)
+docker compose up --build         # the first build downloads PyTorch and the embedding model: several minutes
+```
+
+Open http://localhost:3000. The backend container runs `alembic upgrade head` before it starts, so the database is created or brought up to date by itself.
+
+- **First admin:** there is no sign-up page. Register at http://localhost:8000/docs (`POST /api/v1/auth/register`), then
+  `docker compose exec backend python -m scripts.create_admin you@example.com`.
+- **Data:** the database and the uploaded files live in Docker volumes, so they survive `docker compose down`. `docker compose down -v` deletes them.
+- **After changing the code:** `docker compose up --build`.
+- **Ports 3000 or 8000 already in use** (for example by the dev servers below): set `BACKEND_PORT` and `FRONTEND_PORT` in `.env`, then `docker compose up --build`. The backend port is built into the frontend image, and the backend only answers web pages from the frontend's address (`CORS_ORIGINS`, set by compose).
+- **Ollama on Linux** listens only on localhost by default; start it with `OLLAMA_HOST=0.0.0.0` so a container can reach it. If Ollama reports a CUDA error, set `OLLAMA_NUM_GPU=0` in `.env`.
+- The images carry no secrets: `.env`, the database and uploads are excluded by `.dockerignore`, and the backend runs as a normal user, not root.
+
+The sections below set the project up without Docker, which is better for developing (the servers reload when you save a file).
+
 ### Backend
 
 ```bash
@@ -178,6 +202,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 
 - **Backend:** installs `requirements.txt` (with the CPU build of PyTorch) and runs `pytest -m "not slow"`. The slow tests need the real model and Ollama, so they stay local.
 - **Frontend:** `npm ci`, `tsc --noEmit` and `npm run build`.
+- **Docker:** builds both images, starts them with `docker compose up`, and checks that the backend answers, that a user can be created (so the migrations built the tables in the container), that the frontend answers and that CORS lets the frontend in.
 
 To check the frontend the same way before pushing: `cd frontend && npm ci && npx tsc --noEmit && npm run build`.
 
@@ -246,7 +271,6 @@ an admin's review. Not done yet: testing a larger model.
 - Try a larger local model and a multilingual embedding model
 - Sentence-aware chunking
 - Frontend tests
-- Docker
 
 ## Author
 
