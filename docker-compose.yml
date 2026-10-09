@@ -1,0 +1,47 @@
+# Starts the whole app:  docker compose up --build
+# Needs a file called .env next to this one (copy .env.example) with a SECRET_KEY.
+# Ollama is NOT started here: it runs on your own machine (it uses your GPU there) and the backend reaches it from the container.
+
+services:
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: sqlite:////data/app.db # four slashes: an absolute path inside the container, on the volume below
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the .env file (see .env.example)}
+      # from inside a container "localhost" is the container itself; host.docker.internal is your machine
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      OLLAMA_NUM_GPU: ${OLLAMA_NUM_GPU:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
+      # the backend only answers web pages from this address (the frontend as the browser sees it)
+      CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-3000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # Docker Desktop has this name already; plain Linux Docker needs this line
+    volumes:
+      - app-data:/data # the database
+      - uploads:/app/data/uploads # the uploaded files
+    ports:
+      - "${BACKEND_PORT:-8000}:8000" # left side: the port on your machine
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s # the migrations and loading the embedding model take a while
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # the address the BROWSER uses to reach the backend; it is built into the page, so changing the port needs --build
+        NEXT_PUBLIC_API_URL: http://localhost:${BACKEND_PORT:-8000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+# named volumes survive "docker compose down"; "docker compose down -v" deletes them (and the data)
+volumes:
+  app-data:
+  uploads:

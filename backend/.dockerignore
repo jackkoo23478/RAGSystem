@@ -1,0 +1,14 @@
+# Nothing in here may end up in the image: secrets, the local database, uploads, caches, scratch files.
+.env
+.env.*
+!.env.example
+*.db
+data/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+try_*.py
+view_db.py
+Dockerfile
+.dockerignore
