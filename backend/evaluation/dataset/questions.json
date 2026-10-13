@@ -1,0 +1,48 @@
+{
+  "_comment": "group = question language - document language (en-zh: English question about a Chinese document). evidence: a phrase that must appear in a chunk for that chunk to count as relevant. must_contain: a list of groups; the answer is correct when it contains at least one alternative from EVERY group. kind unanswerable: the documents do not contain the answer, so the right result is a refusal.",
+  "documents": [
+    {"file": "store_policy_en.txt", "language": "en"},
+    {"file": "it_helpdesk_en.txt", "language": "en"},
+    {"file": "hr_handbook_zh.txt", "language": "zh"},
+    {"file": "office_rules_zh.txt", "language": "zh"}
+  ],
+  "questions": [
+    {"id": "en-en-01", "group": "en-en", "kind": "answerable", "question": "How many days do I have to ask for a refund?", "document": "store_policy_en.txt", "evidence": ["within 30 days"], "must_contain": [["30"]]},
+    {"id": "en-en-02", "group": "en-en", "kind": "answerable", "question": "How long does a refund take to reach my account?", "document": "store_policy_en.txt", "evidence": ["5 to 7 business days"], "must_contain": [["5 to 7", "5-7", "5 and 7"]]},
+    {"id": "en-en-03", "group": "en-en", "kind": "answerable", "question": "How much does express shipping cost?", "document": "store_policy_en.txt", "evidence": ["12 dollars"], "must_contain": [["12"]]},
+    {"id": "en-en-04", "group": "en-en", "kind": "answerable", "question": "What does the warranty not cover?", "document": "store_policy_en.txt", "evidence": ["water damage"], "must_contain": [["water damage"]]},
+    {"id": "en-en-05", "group": "en-en", "kind": "answerable", "question": "How long is the warranty on electronic products?", "document": "store_policy_en.txt", "evidence": ["2-year limited warranty"], "must_contain": [["2-year", "2 year", "two year", "two-year"]]},
+    {"id": "en-en-06", "group": "en-en", "kind": "answerable", "question": "At what order value is standard shipping free?", "document": "store_policy_en.txt", "evidence": ["Orders over 50 dollars"], "must_contain": [["50"]]},
+    {"id": "en-en-07", "group": "en-en", "kind": "answerable", "question": "How long is a password reset link valid?", "document": "it_helpdesk_en.txt", "evidence": ["valid for 15 minutes"], "must_contain": [["15 minutes", "15 min"]]},
+    {"id": "en-en-08", "group": "en-en", "kind": "answerable", "question": "What happens after 5 wrong password attempts?", "document": "it_helpdesk_en.txt", "evidence": ["locked for 30 minutes"], "must_contain": [["locked"], ["30"]]},
+    {"id": "en-en-09", "group": "en-en", "kind": "answerable", "question": "Do I need two-factor authentication to use the VPN?", "document": "it_helpdesk_en.txt", "evidence": ["Two-factor authentication is mandatory"], "must_contain": [["mandatory", "yes", "required", "need"]]},
+    {"id": "en-en-10", "group": "en-en", "kind": "answerable", "question": "How often are laptops replaced?", "document": "it_helpdesk_en.txt", "evidence": ["replaced every 4 years"], "must_contain": [["4 years", "four years"]]},
+    {"id": "en-en-11", "group": "en-en", "kind": "answerable", "question": "Where do I book a laptop swap?", "document": "it_helpdesk_en.txt", "evidence": ["IT desk on the 3rd floor"], "must_contain": [["IT desk", "3rd floor", "third floor"]]},
+
+    {"id": "zh-zh-01", "group": "zh-zh", "kind": "answerable", "question": "全職員工一年有幾多日年假?", "document": "hr_handbook_zh.txt", "evidence": ["15 日有薪年假"], "must_contain": [["15"]]},
+    {"id": "zh-zh-02", "group": "zh-zh", "kind": "answerable", "question": "請病假幾時一定要交醫生證明?", "document": "hr_handbook_zh.txt", "evidence": ["連續請病假 2 日或以上"], "must_contain": [["2 日", "2日", "兩日", "2 天", "2天", "兩天", "二日"]]},
+    {"id": "zh-zh-03", "group": "zh-zh", "kind": "answerable", "question": "新員工試用期有幾長?", "document": "hr_handbook_zh.txt", "evidence": ["試用期係 3 個月"], "must_contain": [["3 個月", "3個月", "三個月"]]},
+    {"id": "zh-zh-04", "group": "zh-zh", "kind": "answerable", "question": "加班費點計?", "document": "hr_handbook_zh.txt", "evidence": ["1.5 倍"], "must_contain": [["1.5"]]},
+    {"id": "zh-zh-05", "group": "zh-zh", "kind": "answerable", "question": "未用完嘅年假最多可以帶幾多日去下一年?", "document": "hr_handbook_zh.txt", "evidence": ["最多可以帶到下一年 5 日"], "must_contain": [["5"]]},
+    {"id": "zh-zh-06", "group": "zh-zh", "kind": "answerable", "question": "辦公室逢星期一至五幾點開放?", "document": "office_rules_zh.txt", "evidence": ["上午 8 時至晚上 8 時"], "must_contain": [["8"]]},
+    {"id": "zh-zh-07", "group": "zh-zh", "kind": "answerable", "question": "訪客入辦公室要做啲咩?", "document": "office_rules_zh.txt", "evidence": ["喺接待處登記"], "must_contain": [["登記"]]},
+    {"id": "zh-zh-08", "group": "zh-zh", "kind": "answerable", "question": "報銷收據要喺幾耐內交俾財務部?", "document": "office_rules_zh.txt", "evidence": ["30 日內交俾財務部"], "must_contain": [["30"]]},
+    {"id": "zh-zh-09", "group": "zh-zh", "kind": "answerable", "question": "單筆費用超過幾多錢要經理批准?", "document": "office_rules_zh.txt", "evidence": ["2,000 港元"], "must_contain": [["2,000", "2000"]]},
+    {"id": "zh-zh-10", "group": "zh-zh", "kind": "answerable", "question": "訪客可唔可以喺辦公室影相?", "document": "office_rules_zh.txt", "evidence": ["唔可以喺辦公室範圍內拍照"], "must_contain": [["唔可以", "不可以", "不能", "唔得", "禁止"]]},
+
+    {"id": "zh-en-01", "group": "zh-en", "kind": "answerable", "question": "寄快遞要幾多日?", "document": "store_policy_en.txt", "evidence": ["Express shipping takes 1 to 2 business days"], "must_contain": [["1 至 2", "1 to 2", "1-2", "1 到 2", "1至2", "1到2", "一至兩", "1~2"]]},
+    {"id": "zh-en-02", "group": "zh-en", "kind": "answerable", "question": "退款要喺幾多日內申請?", "document": "store_policy_en.txt", "evidence": ["within 30 days"], "must_contain": [["30"]]},
+    {"id": "zh-en-03", "group": "zh-en", "kind": "answerable", "question": "部手提電腦幾耐換一次?", "document": "it_helpdesk_en.txt", "evidence": ["replaced every 4 years"], "must_contain": [["4", "四"]]},
+    {"id": "zh-en-04", "group": "zh-en", "kind": "answerable", "question": "密碼幾耐要更改一次?", "document": "it_helpdesk_en.txt", "evidence": ["expire every 90 days"], "must_contain": [["90"]]},
+
+    {"id": "en-zh-01", "group": "en-zh", "kind": "answerable", "question": "How many days of paid annual leave do full-time employees get?", "document": "hr_handbook_zh.txt", "evidence": ["15 日有薪年假"], "must_contain": [["15"]]},
+    {"id": "en-zh-02", "group": "en-zh", "kind": "answerable", "question": "What time does the office open on weekdays?", "document": "office_rules_zh.txt", "evidence": ["上午 8 時至晚上 8 時"], "must_contain": [["8"]]},
+
+    {"id": "unanswerable-en-01", "group": "unanswerable-en", "kind": "unanswerable", "question": "Can I pay with cryptocurrency?", "document": null, "evidence": [], "must_contain": []},
+    {"id": "unanswerable-en-02", "group": "unanswerable-en", "kind": "unanswerable", "question": "How do I request a second monitor?", "document": null, "evidence": [], "must_contain": []},
+    {"id": "unanswerable-en-03", "group": "unanswerable-en", "kind": "unanswerable", "question": "What is the company dress code?", "document": null, "evidence": [], "must_contain": []},
+    {"id": "unanswerable-zh-01", "group": "unanswerable-zh", "kind": "unanswerable", "question": "公司有冇提供免費午餐?", "document": null, "evidence": [], "must_contain": []},
+    {"id": "unanswerable-zh-02", "group": "unanswerable-zh", "kind": "unanswerable", "question": "員工幾時可以請產假?", "document": null, "evidence": [], "must_contain": []},
+    {"id": "unanswerable-zh-03", "group": "unanswerable-zh", "kind": "unanswerable", "question": "公司股票幾時上市?", "document": null, "evidence": [], "must_contain": []}
+  ]
+}

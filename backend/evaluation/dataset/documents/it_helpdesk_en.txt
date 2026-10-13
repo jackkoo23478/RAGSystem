@@ -1,0 +1,10 @@
+Northwind IT Helpdesk Guide
+
+Password reset
+Passwords expire every 90 days. To reset a password, open the self-service portal and choose Forgot password. A reset link is sent to your work email and stays valid for 15 minutes. After 5 wrong attempts the account is locked for 30 minutes.
+
+VPN access
+The VPN is required when working outside the office. Install the Northwind VPN client from the software portal and sign in with your work account. Two-factor authentication is mandatory: approve the prompt in the authenticator app. If the VPN drops often, switch from Wi-Fi to a cable connection and restart the client.
+
+Laptop replacement
+Laptops are replaced every 4 years. A broken laptop can be swapped within 2 business days; book a time at the IT desk on the 3rd floor. Always back up your files to the company cloud drive before handing in a laptop, because the old disk is wiped.
