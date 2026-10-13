@@ -36,3 +36,6 @@ Thumbs.db
 
 # uploaded files
 uploads/
+# evaluation reports (regenerate with: python -m evaluation.run)
+backend/evaluation/results/
+backend/evaluation/data/

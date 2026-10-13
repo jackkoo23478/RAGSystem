@@ -13,3 +13,4 @@ httpx==0.28.1
 python-multipart==0.0.22
 numpy==2.4.4
 alembic==1.20.0
+opencc-python-reimplemented==0.1.7

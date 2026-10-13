@@ -16,7 +16,7 @@ def test_embedding_shape():
     vectors = embed_texts(["hello", "world"])
 
     assert len(vectors) == 2
-    assert all(len(v) == 384 for v in vectors)
+    assert all(len(v) == 1024 for v in vectors)  # bge-m3 gives 1024 numbers per text
 
 
 def test_empty_input_returns_empty_list():

@@ -19,14 +19,20 @@ Built as a learning project, step by step, with an automated test suite (300+ te
 | Frontend: admin documents page (upload, process, delete, review of flagged documents) | Done |
 | Admin dashboard (counts, daily charts, recent questions) and question log with filters | Done |
 | Response time recorded for every question | Done |
+| Evaluation of retrieval and answers (33 questions, `python -m evaluation.run`) | Done |
 | DOCX support, reranking | Not started |
 
 ## Tech stack
 
 - **Backend:** FastAPI, SQLAlchemy, SQLite, Pydantic, PyJWT, bcrypt
-- **Embeddings:** `sentence-transformers` (`all-MiniLM-L6-v2`, 384 dimensions), run locally
+- **Embeddings:** `sentence-transformers` with [`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3) (multilingual, 1024 dimensions, about 2 GB), run locally; the model is set by `EMBEDDING_MODEL`
 - **LLM:** [Ollama](https://ollama.com) with `qwen2.5:3b`, run locally (no API key needed)
-- **Vector search:** cosine similarity with NumPy over the chunks stored in SQLite
+- **Search:** hybrid. By meaning: cosine similarity with NumPy over the chunk vectors stored in SQLite (as JSON text). By keywords: BM25, written from scratch
+  (`app/features/rag/keyword.py`), with Chinese cut into pairs of characters. The two rankings are merged with reciprocal rank fusion
+- **Reranking:** the search takes 10 chunks, [`BAAI/bge-reranker-v2-m3`](https://huggingface.co/BAAI/bge-reranker-v2-m3) (a model that reads the question and a chunk together)
+  puts them in order, and the best 4 go to the LLM (`RAG_RERANK`, `RAG_CANDIDATES`). About 0.15 s per question on the GPU
+- **Answer language:** an English question gets an English prompt and a Chinese question a Cantonese one (`app/features/rag/prompt.py`); simplified characters in an
+  answer are turned into traditional ones with OpenCC (`app/features/rag/language.py`)
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript, react-hook-form, zod, Tailwind CSS v4, Recharts, lucide-react icons
 - **Tests:** pytest (in-memory SQLite, fake embedder, fake LLM, `httpx.MockTransport`)
 
@@ -35,8 +41,11 @@ Built as a learning project, step by step, with an automated test suite (300+ te
 ```
 question
   1. embed the question
-  2. search chunks of processed documents (cosine similarity, top_k=4, min_score=0.3)
-       nothing above the threshold -> status "no_evidence" (the LLM is never called)
+  2. search chunks of processed documents (top_k=4)
+       by meaning: cosine similarity; by keywords: BM25; the two rankings are merged (RAG_HYBRID_SEARCH=false: meaning only)
+       the best 10 are reranked by a second model and the best 4 are kept (RAG_RERANK=false: the search order is used)
+       not even the best chunk reaches min_score=0.5 (RAG_MIN_SCORE, in cosine similarity)
+         -> status "no_evidence" (the LLM is never called)
   3. build a prompt: rules in the system message, numbered <source id="n"> blocks, then the question
   4. ask the LLM (error -> status "failed", HTTP 502)
   5. check the answer
@@ -83,7 +92,7 @@ Ollama is not part of the containers: it runs on your own machine and the backen
 
 ```bash
 cp .env.example .env              # then put a SECRET_KEY in it (the file says how)
-docker compose up --build         # the first build downloads PyTorch and the embedding model: several minutes
+docker compose up --build         # the first build downloads PyTorch and the embedding model (about 2 GB): several minutes
 ```
 
 Open http://localhost:3000. The backend container runs `alembic upgrade head` before it starts, so the database is created or brought up to date by itself.
@@ -94,6 +103,10 @@ Open http://localhost:3000. The backend container runs `alembic upgrade head` be
 - **After changing the code:** `docker compose up --build`.
 - **Ports 3000 or 8000 already in use** (for example by the dev servers below): set `BACKEND_PORT` and `FRONTEND_PORT` in `.env`, then `docker compose up --build`. The backend port is built into the frontend image, and the backend only answers web pages from the frontend's address (`CORS_ORIGINS`, set by compose).
 - **Ollama on Linux** listens only on localhost by default; start it with `OLLAMA_HOST=0.0.0.0` so a container can reach it. If Ollama reports a CUDA error, set `OLLAMA_NUM_GPU=0` in `.env`.
+- **The embedding model is about 2 GB** and is part of the backend image. The container has no GPU, so it embeds on the CPU: asking a question is fine, uploading a large document is slow.
+- **The reranker is not in the image.** With `RAG_RERANK=true` (the default) the first question downloads it (about 2 GB), and on the CPU a rerank of 10 passages takes seconds instead of
+  0.15 s (my estimate, not measured). In Docker without a GPU, set `RAG_RERANK=false` unless you accept that.
+  A volume made with an older image holds vectors of another size: after rebuilding, run `docker compose exec backend python -m scripts.rebuild_index`.
 - The images carry no secrets: `.env`, the database and uploads are excluded by `.dockerignore`, and the backend runs as a normal user, not root.
 
 The sections below set the project up without Docker, which is better for developing (the servers reload when you save a file).
@@ -140,7 +153,22 @@ OLLAMA_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=qwen2.5:3b
 LLM_TIMEOUT_SECONDS=120
 # OLLAMA_NUM_GPU=0                # set to 0 to force CPU if Ollama reports a CUDA error
+# EMBEDDING_MODEL=BAAI/bge-m3     # the model that turns text into vectors
+# RAG_MIN_SCORE=0.5               # at least one passage must reach this similarity, or the question is refused; the scale depends on the model
+# RAG_HYBRID_SEARCH=true          # also search by keywords (BM25) and merge with the search by meaning; false = by meaning only
+# RAG_RERANK=true                 # a second model puts the best RAG_CANDIDATES chunks in order and the best 4 are kept (about 1 GB of VRAM, 2 GB to download)
+# RAG_CANDIDATES=10
+# RERANK_MODEL=BAAI/bge-reranker-v2-m3
 ```
+
+**Changing the embedding model changes every vector**, and vectors of different models cannot be compared (their sizes differ).
+After changing `EMBEDDING_MODEL`, run `python -m scripts.rebuild_index` (in Docker: `docker compose exec backend python -m scripts.rebuild_index`).
+It embeds the stored chunks again and leaves the text and the documents alone. Until then, a question gets HTTP 503 with that instruction instead of a wrong result.
+`RAG_MIN_SCORE` has to be chosen again for a new model: see "Evaluation" below, which prints the trade-off for each value.
+**Changing the way chunks are cut** (or their size) needs `python -m scripts.rebuild_index --rechunk`: it reads every processed document from its uploaded file again,
+cuts it with the current chunker and embeds it. A document whose file is missing keeps its old chunks and stays searchable; the script lists it.
+Back up `app.db` first: the old chunks of a document are replaced.
+If a PyTorch build with CUDA is installed, the embedding model uses the GPU by itself; otherwise it runs on the CPU.
 
 `.env` is git-ignored. Never commit it.
 
@@ -206,6 +234,194 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 
 To check the frontend the same way before pushing: `cd frontend && npm ci && npx tsc --noEmit && npm run build`.
 
+### Evaluation
+
+`backend/evaluation/` measures retrieval and answers on a fixed set: 4 short documents (2 English, 2 Cantonese) and 33 questions
+with the expected facts and the passage they come from. Six questions have **no** answer in the documents, to check that the system refuses.
+It runs in an in-memory database, so your real data is not touched.
+
+```bash
+cd backend
+python -m evaluation.run              # retrieval only: fast, needs no LLM
+python -m evaluation.run --answers    # also asks the LLM (Ollama must be running), about 2 to 5 minutes
+```
+
+The report is printed as tables and saved with every question in `backend/evaluation/results/latest.json` (not committed).
+Questions are grouped by language pair (`zh-en` is a Chinese question about an English document).
+
+- **Retrieval:** hit@1, hit@k and MRR (is the right passage among the top results), how many answerable questions pass `min_score`,
+  how many unanswerable questions still get evidence, and a sweep over `min_score` to show the trade-off.
+- **Answers:** correct (the key facts are in the answer), citation supported (the cited passage really contains the evidence),
+  refusal of unanswerable questions, wrong answers shown, and latency. Correctness is a keyword check, not an LLM judge.
+
+Hand-written set, before and after changing the embedding model from `all-MiniLM-L6-v2` (`min_score=0.3`) to `bge-m3` (`min_score=0.5`), with `qwen2.5:3b`, `top_k=4`:
+
+| group | found by the app | correct answer |
+|---|---|---|
+| en-en (11) | 91% → 100% | 73% → 64% |
+| zh-zh (10) | 100% → 100% | 100% → 80% |
+| zh-en (4) | 0% → 100% | 0% → 25% |
+| en-zh (2) | 0% → 100% | 0% → 100% |
+| all answerable (27) | 74% → 100% | 67% → 67% |
+| unanswerable (6) | | refused 100% → 100%, wrong answer shown 0% → 0% |
+
+The right passage is now found for every question, but the **answers did not get better**: with `qwen2.5:3b` the bottleneck moved to the model,
+which refuses wrongly or leaves out the `[1]` citation (so the answer is not shown). A larger LLM is the next thing to try.
+This set has only about a dozen chunks, so hit@k is easy to reach, and 27 answerable questions are too few to see small differences;
+the larger sets below say more about retrieval.
+
+#### Comparing embedding models
+
+```bash
+python -m evaluation.compare                          # 4 models on the hand-written set
+python -m evaluation.compare --dataset drcd           # 400 questions, 1,000 paragraphs (Traditional Chinese)
+python -m evaluation.compare --dataset drcd-yue       # 60 of them, asked as written and in Cantonese
+python -m evaluation.compare --dataset wikiqa-yue     # 500 Cantonese questions, 4,457 chunks of Cantonese Wikipedia
+python -m evaluation.compare BAAI/bge-m3 intfloat/multilingual-e5-small    # or choose the models
+```
+
+The three bigger sets are downloaded once from Hugging Face into `backend/evaluation/data/` (not committed):
+[DRCD](https://huggingface.co/datasets/voidful/DRCD) (CC BY-SA 3.0), [multi-wiki-qa](https://huggingface.co/datasets/alexandrainst/multi-wiki-qa)
+(`yue` part, CC BY-NC-SA 4.0, **non-commercial**), and `evaluation/dataset/drcd_cantonese.json` (my Cantonese rewrites of 60 DRCD questions, share alike).
+A chunk counts as relevant when it holds the answer and comes from the right passage or article. Scores are hit@4 (the right passage is among the 4 sent to the LLM), with hit@1 where it is not 100%:
+
+| model | hand-written (27 answerable) | DRCD (400) hit@1 / hit@4 | Cantonese Wikipedia (500) hit@1 / hit@4 |
+|---|---|---|---|
+| `all-MiniLM-L6-v2` (the old default) | 89% | 10% / 19% | 1% / 3% |
+| `paraphrase-multilingual-MiniLM-L12-v2` | 100% | 40% / 57% | 18% / 29% |
+| `intfloat/multilingual-e5-small` | 96% | 79% / 93% | 56% / 80% |
+| **`BAAI/bge-m3`** (the default now) | 100% | 80% / 93% | **64% / 87%** |
+
+- The small collection hides the problem: the old model looks fine on the hand-written set and finds almost nothing on Cantonese Wikipedia.
+- The first two models only read the start of a 500-character Chinese chunk: their input limit is 128 and 256 tokens, and a DRCD paragraph is about 250 to 330 tokens.
+  `e5-small` (512) and `bge-m3` (8,192) read all of it. This is a reason to change the chunk size and the model together.
+- Cantonese wording made no difference to `e5-small` and `bge-m3` on the 60 paired questions (92% and 97% for both wordings).
+  The Cantonese was written by an AI and not checked by a native speaker, and names and numbers were kept, so a real user's speech may be harder.
+- `bge-m3` is ahead of `e5-small` on the largest set (87% against 80%) and tied on the others. `e5-small` is about a fifth of the size (470 MB) and a good choice on a CPU-only machine.
+
+#### Comparing chunking strategies
+
+```bash
+python -m evaluation.chunk_eval                                  # Cantonese Wikipedia, 8 strategies
+python -m evaluation.chunk_eval --dataset drcd                   # Traditional Chinese Wikipedia
+python -m evaluation.chunk_eval --strategies fixed-500 recursive-500 gap-40
+```
+
+Strategies: `fixed-N` (a window of N characters, 10% overlap: how the app cut before), `recursive-N` (the same size, cut at natural breaks: what the app does now),
+`semantic-P` (embed every sentence and cut where the gap between neighbours is in the top (100 - P)% of the document) and `gap-N` (cut where that gap is bigger than N/100;
+available but **not evaluated yet**). Whole articles are used as documents, and a chunk counts as right when it comes from the question's article and covers the characters
+where the answer sits, so every strategy is judged by the same yardstick. Results with `bge-m3`, top 4 chunks, 500 questions each, hit@4 and the number of characters sent to the LLM:
+
+| strategy | Cantonese Wikipedia hit@4 | chars to LLM | DRCD hit@4 | chars to LLM |
+|---|---|---|---|---|
+| fixed-300 | 79% | 1,165 | 92% | 1,131 |
+| **fixed-500** (the old default) | 82% | 1,900 | 89% | 1,800 |
+| fixed-800 | 83% | 2,929 | 89% | 2,720 |
+| recursive-300 | 81% | 962 | 92% | 1,028 |
+| **recursive-500** (the default now) | 83% | 1,640 | 91% | 1,591 |
+| recursive-800 | 84% | 2,629 | 92% | 2,249 |
+| semantic-75 | 81% | 1,272 | **94%** | 1,149 |
+| semantic-90 | 83% | 1,755 | 92% | 1,642 |
+
+- The differences are small next to the embedding model (on Cantonese Wikipedia hit@4 goes from 3% to 87% with the model, against 79% to 84% with the chunking).
+  On Cantonese Wikipedia none of the strategies is distinguishable from chance (sign test of the questions gained and lost against `fixed-500`).
+- `recursive-500` was at least as good as `fixed-500` on both collections and sent about 14% fewer characters to the LLM, with no extra model: that is why it is the default.
+- `semantic-75` is clearly the best on DRCD (31 questions found that `fixed-500` missed, 9 lost; p = 0.001) but not on Cantonese Wikipedia (30 found, 33 lost), and it is slower to ingest (every sentence is embedded).
+  A likely reason is that DRCD articles have paragraph breaks and the Cantonese Wikipedia text has no line breaks at all; this was not tested.
+- Only retrieval was measured. Smaller chunks give the LLM less context, which needs the answer evaluation to judge. Bigger chunks find answers more easily, hence the characters column.
+- The mean chunk is shorter than the limit (`fixed-300` averages 285 characters) because the last chunk of each article is short.
+
+#### Comparing searches: meaning, keywords, both
+
+```bash
+python -m evaluation.hybrid_eval --dataset wikiqa-yue    # Cantonese Wikipedia, 500 questions
+python -m evaluation.hybrid_eval --dataset drcd          # Traditional Chinese Wikipedia, 500 questions
+python -m evaluation.hybrid_eval --dataset pdf --document "Name of an uploaded file.pdf"   # look up questions of a question bank in your own database (read-only)
+```
+
+Same chunks (recursive-500), same questions, three rankings: by meaning (`bge-m3`, what the app did before), by keywords (BM25) and both merged with reciprocal rank fusion
+(what the app does now). hit@1 / hit@4, and the questions found / lost against the search by meaning (sign test p):
+
+| test | meaning | keywords (BM25) | hybrid | hybrid against meaning |
+|---|---|---|---|---|
+| Cantonese Wikipedia (500 questions, 4,770 chunks) | 61% / 83% | 56% / 79% | **65% / 87%** | +39 / -21, p = 0.027 |
+| DRCD, Traditional Chinese (500, 1,197 chunks) | 77% / 91% | **92% / 98%** | 87% / 97% | +31 / -1, p < 0.001 |
+| question bank PDF, whole question (150, 266 chunks) | 52% / 71% | **95% / 100%** | 68% / 87% | +24 / -0, p < 0.001 |
+| question bank PDF, first half of the question | 37% / 63% | **87% / 99%** | 56% / 78% | +22 / -0, p < 0.001 |
+
+- The hybrid never found fewer questions than the search by meaning on a net basis, and it is the only one that is good on all of the tests: BM25 alone is the best on the
+  texts where the question repeats the words of the document, and the worst on the Cantonese Wikipedia questions, which were written in other words.
+- **BM25 wins on the last three tests partly by construction**: the DRCD questions were written by people reading the passage, and the PDF questions are copied from the
+  document. Real users ask less like the text, so the real gain of the keywords is smaller than here. The Cantonese Wikipedia test is the closest to real use.
+- The search by meaning alone found only 71% of the question-bank questions even when they were typed exactly as in the document: a question bank holds many questions that mean almost the same.
+- Not tuned: the fusion constant (60), equal weights and the pairs-of-characters tokenizer are defaults. The hybrid takes about half of BM25's gain where BM25 is far better; a weight on BM25 could take more, at a cost on the Cantonese Wikipedia test (not tried).
+- The threshold `RAG_MIN_SCORE` still works on the meaning score of the best chunk, so a question with a good keyword match but no similar meaning at all is refused as before.
+- Retrieving the right chunk does not make a small LLM answer it: on four of my own questions about the question-bank PDF the hybrid search changed which chunks the model saw, but `qwen2.5:3b` refused one question
+  with either search and, for another, answered without the `[1]` citation with the hybrid search (so the answer was not shown) and with it using the search by meaning.
+
+#### Reranking, a larger LLM and the language of the answer
+
+How much could a reranker gain? Taking 10 chunks from the hybrid search instead of 4 finds the right one in 93% (Cantonese Wikipedia) and 99% (DRCD) of the questions, against 87% and 97%:
+that is the most a reranker can add. `BAAI/bge-reranker-v2-m3` (in half precision on the GPU) reached almost all of it, on the same 500 + 500 questions:
+
+| test | hybrid, top 4 (hit@1 / hit@4) | hybrid top 10, reranked, top 4 | right chunk found / lost |
+|---|---|---|---|
+| Cantonese Wikipedia | 65% / 87% | **77% / 92%** | +25 / -1, p < 0.001 |
+| DRCD, Traditional Chinese | 87% / 97% | **97% / 99%** | +9 / -0, p = 0.004 |
+
+Reranking 10 passages takes about 0.14 s. `bge-m3` also runs in half precision on the GPU now (1.1 GB instead of 2.2): its vectors are 0.9999 similar to the full precision
+ones, and the hit rate did not change, so a database indexed earlier needs no rebuild. On the 8 GB GPU of the machine used here, `qwen2.5:7b` (4.6 GB) + `bge-m3` + the reranker
+take about 7.0 GB together; with full precision the three would not fit.
+
+The hand-written set (33 questions) with `qwen2.5:7b` on the GPU, `min_score=0.5`:
+
+| | `qwen2.5:3b` | `qwen2.5:7b` | `qwen2.5:7b`, language prompts + reranking |
+|---|---|---|---|
+| answer correct | 67% | 85-89% | **96%** |
+| answered without a valid `[n]` (hidden) | some | 0% | 0% |
+| wrong answer shown to a question with no answer | 0% | 0% | 0% |
+| mean time per question | tens of seconds on the CPU | 0.8 s | 0.6 s |
+
+- **On the large question sets the answers are much lower than on my 33 questions** (`python -m evaluation.answer_eval`, `qwen2.5:7b`, 500 questions each, one run, an answer counts as
+  correct when it contains the text of the right answer):
+
+  | | Cantonese Wikipedia | DRCD |
+  |---|---|---|
+  | answer correct | **61%** (95% interval 56-65%) | **81%** (77-84%) |
+  | the answer was among the 4 chunks given to the LLM | 92% | 90% |
+  | correct, when the answer was among them | 66% | 90% |
+  | refused below `RAG_MIN_SCORE` / refused by the LLM although it had the answer / answered wrongly although it had the answer | 18 / 42 / 116 | 49 / 23 / 24 |
+
+  The matching is strict: in the 10 + 10 "wrong" answers I read (the first ten of each, not a random sample), about half were right in other words ("台東縣" for "臺東縣", "才藝小姐" for
+  "才藝小姐（Miss Talent）"), so the real figures are higher, roughly 70% and 83% by that rough reading. Use these two figures, not the 96% of the 33 questions I wrote, which are short and easy.
+  The biggest single loss on DRCD is the threshold (49 questions, 10%); on the Cantonese Wikipedia it is the LLM, which shortens answers that should list several items.
+  Faithfulness (is every sentence of the answer in the chunks) and answer relevance are **not measured**: only the citation and the text of the right answer are checked.
+- The first column comes from the earlier run of this README; the 7B runs are one run each on 33 questions that I wrote myself, and the same prompt gave 89% in the morning and 85% in the
+  afternoon on the same set (the model is not perfectly stable between runs), so differences of a few points are not proof.
+- **A prompt that asks for traditional characters made it worse**: any mention of Chinese made the 7B answer English questions in Chinese (English questions: 91% down to 27-55%). What works is to decide
+  the language in code: one prompt per language of the question, and OpenCC for the characters. English questions went from 91% to 100%, and "answer is in the language of the question" is 100%.
+- The English questions about the Chinese documents (2 questions) were refused before and are all answered now: the reranker puts the chunk that holds the answer first.
+- **The retrieval table of `python -m evaluation.run` searches the way the app does** (keywords as well as meaning, then the reranker, and the threshold on the best meaning score of the question).
+  It used to search by meaning only, and so it could not see this problem: with the hybrid search and **no** reranker the same table gives hit@1 89% (English questions about the Chinese documents 0%,
+  Chinese questions about the English documents 75%), because the keywords of an English question only match English documents and push the Chinese chunk with the answer out of the top 4.
+  With the reranker it is 100% again. The comparison of embedding models (`evaluation.compare`) still searches by meaning only, on purpose.
+- `qwen2.5:7b` needs the 4 chunks to fit its context: 4 chunks of 500 Chinese characters take about 1,700 of the 4,096 tokens that Ollama gives by default. Sending 10 chunks without reranking would not fit.
+
+#### Choosing `RAG_MIN_SCORE` for `bge-m3`
+
+The scores of right and wrong passages overlap, so any threshold is a compromise. Measured on the 500 Cantonese questions plus 306 out-of-scope ones
+(300 DRCD questions asked of the Cantonese collection, and the 6 unanswerable hand-written ones; the DRCD questions are a stand-in and a few may overlap in topic):
+
+| min_score | answerable questions still found (at most 87%) | out-of-scope questions still given evidence |
+|---|---|---|
+| 0.45 | 87% | 84% |
+| **0.50** (chosen) | 84% | 46% |
+| 0.55 | 76% | 13% |
+| 0.60 | 63% | 2% |
+
+0.50 keeps nearly all the real answers and stops about half of the unrelated questions. The LLM refuses most of the rest (all 6 unanswerable questions were refused),
+so a wrongly refused real question costs more than an extra call to the LLM. Raise it if "no evidence" for unrelated questions matters more to you.
+
 ## Limitations (measured, not guessed)
 
 These were found by testing against real documents and the local model.
@@ -248,14 +464,18 @@ an admin's review. Not done yet: testing a larger model.
 
 ### Retrieval
 
-- The embedding model is English-centric. A Chinese question against an English document scored about 0.15, below the
-  0.3 threshold, so it is refused.
-- `min_score = 0.3` was chosen from a handful of documents: correct matches scored 0.39 to 0.46, irrelevant ones 0.03 to 0.28.
-  Treat it as a starting point.
-- Similarity is computed in Python over every stored chunk. That is fine for small collections and slow for large ones
-  (pgvector would be the next step).
-- Chunking is by character count (500 with 50 overlap) within each page, so a sentence can be cut in half and
-  sentences are not joined across pages.
+- On 500 Cantonese Wikipedia questions, `bge-m3` puts the right passage first for 64% and among the top 4 for 87%. So 13% of the questions
+  never reach the LLM, and for another 23% the right passage is there but not first (a reranker is the obvious next step).
+- The right and the wrong scores overlap (see "Choosing `RAG_MIN_SCORE`"), so no threshold separates them cleanly; the LLM is the second line of defence.
+  The evaluation sets are small and partly written by an LLM or by me, so the numbers show direction, not exact quality.
+- Chunks of 500 characters are longer than the input limit of small embedding models (128 or 256 tokens), which is one reason they did badly on Chinese.
+- Similarity is computed in Python: for every question, all stored vectors are read from SQLite and parsed from JSON text.
+  That is fine for small collections; with 4,457 chunks of 1,024 numbers it took most of the time of an evaluation run while the GPU sat idle.
+  Loading the vectors once, storing them in a binary format, or pgvector would be the next step.
+- Chunks are at most 500 characters (50 overlap) and cut at the biggest natural break that fits (paragraph, line, sentence end, comma, space).
+  Text with no break at all, such as a long run of Chinese without punctuation, is cut hard every 500 characters, without overlap.
+  Pages are chunked one by one, so a chunk never spans two pages. In my own PDFs 61% of the chunks end at a sentence end (29% with the fixed-size cutting before);
+  a document made of numbered options with no full stops still gets cut at commas or spaces.
 
 ### Other
 
@@ -267,9 +487,12 @@ an admin's review. Not done yet: testing a larger model.
 
 ## Roadmap
 
-- An evaluation set (questions with expected answers) to compare models, prompts and chunking by numbers
-- Try a larger local model and a multilingual embedding model
-- Sentence-aware chunking
+- Use the evaluation set to compare models, prompts and chunking by numbers (a bigger and more varied set would make small differences visible)
+- Try a larger local LLM (retrieval is solved on the evaluation sets; the 3B model is now the weak point)
+- Reranking of the top results (`bge-m3`: right passage first 64%, in the top 4 87%)
+- Faster vector search (load once, binary storage or pgvector); the BM25 index is already kept between questions
+- Hybrid search: try a weight on the keyword side, and a word segmenter for Chinese instead of pairs of characters
+- Semantic chunking only if it can be made to win on more than one collection (see "Comparing chunking strategies")
 - Frontend tests
 
 ## Author

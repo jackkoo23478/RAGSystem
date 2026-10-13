@@ -6,8 +6,9 @@ from app.db.session import get_db
 from app.features.auth.dependencies import get_current_user
 from app.features.auth.models import User
 from app.features.rag import repository, service
-from app.features.rag.dependencies import get_embedder, get_llm
+from app.features.rag.dependencies import get_embedder, get_llm, get_reranker
 from app.features.rag.llm import LLMError
+from app.features.rag.retrieval import EmbeddingMismatchError
 from app.features.rag.schemas import (
     CitationResponse,
     QueryDetailResponse,
@@ -36,13 +37,19 @@ def ask(
     user: User = Depends(get_current_user),
     llm=Depends(get_llm),
     embed=Depends(get_embedder),
+    rerank=Depends(get_reranker),
 ):
     try:
-        result = service.answer_question(db, user.id, payload.question, llm, embed=embed)
-    except ValueError:
+        result = service.answer_question(db, user.id, payload.question, llm, embed=embed, rerank=rerank)
+    except service.EmptyQuestionError:  # only this one: any other ValueError is a real fault and must not look like an empty question
         raise HTTPException(status_code=422, detail="Question must not be empty.")
     except LLMError:
         raise HTTPException(status_code=502, detail="The language model is unavailable.")
+    except EmbeddingMismatchError:
+        raise HTTPException(
+            status_code=503,
+            detail="The search index was built with a different embedding model. An administrator must run scripts.rebuild_index.",
+        )
 
     return QueryResponse(
         query_id=result.query_id,
