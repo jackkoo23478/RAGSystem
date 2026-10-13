@@ -13,6 +13,9 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
       OLLAMA_NUM_GPU: ${OLLAMA_NUM_GPU:-}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
+      # the reranker is not in the image (about 2 GB to download) and the container has no GPU, so on its CPU it would add seconds to
+      # every question: off here. Turn it on with RAG_RERANK=true in .env if you accept that (the app itself defaults to on).
+      RAG_RERANK: ${RAG_RERANK:-false}
       # the backend only answers web pages from this address (the frontend as the browser sees it)
       CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-3000}
     extra_hosts:
