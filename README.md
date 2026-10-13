@@ -104,8 +104,9 @@ Open http://localhost:3000. The backend container runs `alembic upgrade head` be
 - **Ports 3000 or 8000 already in use** (for example by the dev servers below): set `BACKEND_PORT` and `FRONTEND_PORT` in `.env`, then `docker compose up --build`. The backend port is built into the frontend image, and the backend only answers web pages from the frontend's address (`CORS_ORIGINS`, set by compose).
 - **Ollama on Linux** listens only on localhost by default; start it with `OLLAMA_HOST=0.0.0.0` so a container can reach it. If Ollama reports a CUDA error, set `OLLAMA_NUM_GPU=0` in `.env`.
 - **The embedding model is about 2 GB** and is part of the backend image. The container has no GPU, so it embeds on the CPU: asking a question is fine, uploading a large document is slow.
-- **The reranker is not in the image.** With `RAG_RERANK=true` (the default) the first question downloads it (about 2 GB), and on the CPU a rerank of 10 passages takes seconds instead of
-  0.15 s (my estimate, not measured). In Docker without a GPU, set `RAG_RERANK=false` unless you accept that.
+- **Reranking is off in Docker** (`docker-compose.yml` sets `RAG_RERANK=false`), so the container searches by meaning and keywords only. The reranker is not in the image: with `RAG_RERANK=true`
+  the first question would download it (about 2 GB), and on the CPU a rerank of 10 passages takes seconds instead of 0.15 s (my estimate, not measured). It raised the right chunk in the top 4
+  from 87% to 92% (Cantonese Wikipedia) and from 97% to 99% (DRCD), so turn it on with `RAG_RERANK=true` in `.env` if you accept the wait. Outside Docker the default is on.
   A volume made with an older image holds vectors of another size: after rebuilding, run `docker compose exec backend python -m scripts.rebuild_index`.
 - The images carry no secrets: `.env`, the database and uploads are excluded by `.dockerignore`, and the backend runs as a normal user, not root.
 
