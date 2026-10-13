@@ -7,6 +7,14 @@ from sqlalchemy.pool import StaticPool
 from app.db.all_models import Base, Query, User
 
 
+@pytest.fixture(autouse=True)
+def no_reranker_model(monkeypatch):
+    """The reranker is a 2 GB model: no test may load it by accident. Tests that rerank pass a fake one in."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "rag_rerank", False)
+
+
 @pytest.fixture
 def engine():
     engine = create_engine(

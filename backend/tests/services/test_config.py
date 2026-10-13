@@ -40,3 +40,42 @@ def test_several_origins_are_split_on_commas_and_trimmed():
     settings = make_settings(cors_origins=" http://localhost:3100 , https://demo.example.com,, ")
 
     assert settings.cors_origin_list == ["http://localhost:3100", "https://demo.example.com"]
+
+
+# ---------- embedding model and threshold ----------
+
+def test_the_default_embedding_model_is_bge_m3():
+    assert make_settings().embedding_model == "BAAI/bge-m3"
+
+
+def test_the_embedding_model_and_threshold_can_be_changed(monkeypatch):
+    monkeypatch.setenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
+    monkeypatch.setenv("RAG_MIN_SCORE", "0.8")
+
+    settings = make_settings()
+
+    assert settings.embedding_model == "intfloat/multilingual-e5-small"
+    assert settings.rag_min_score == 0.8
+
+
+def test_hybrid_search_is_on_by_default_and_can_be_switched_off(monkeypatch):
+    monkeypatch.delenv("RAG_HYBRID_SEARCH", raising=False)
+    assert make_settings().rag_hybrid_search is True
+
+    monkeypatch.setenv("RAG_HYBRID_SEARCH", "false")
+    assert make_settings().rag_hybrid_search is False
+
+
+def test_reranking_is_on_by_default_with_ten_candidates_and_can_be_changed(monkeypatch):
+    for name in ("RAG_RERANK", "RERANK_MODEL", "RAG_CANDIDATES"):
+        monkeypatch.delenv(name, raising=False)
+    settings = make_settings()
+    assert settings.rag_rerank is True
+    assert settings.rerank_model == "BAAI/bge-reranker-v2-m3"
+    assert settings.rag_candidates == 10
+
+    monkeypatch.setenv("RAG_RERANK", "false")
+    monkeypatch.setenv("RAG_CANDIDATES", "20")
+    settings = make_settings()
+    assert settings.rag_rerank is False
+    assert settings.rag_candidates == 20

@@ -1,7 +1,7 @@
 import pytest
 
 from app.features.documents.repository import create_chunks, create_document, update_document_status
-from app.features.rag.dependencies import get_embedder, get_llm
+from app.features.rag.dependencies import get_embedder, get_llm, get_reranker
 from app.features.rag.llm import FakeLLM, LLMError
 from app.main import app
 
@@ -248,3 +248,40 @@ def test_citation_survives_deleting_the_document(client, llm, policy, db, user_h
 
     assert body["citations"][0]["document_name"] == "policy.pdf"
     assert "14 days" in body["citations"][0]["snippet"]
+
+
+def test_a_search_index_from_another_embedding_model_gives_a_clear_503(client, llm, db, user, user_headers):
+    doc = create_document(db, original_name="old.pdf", filename="old.pdf", file_type="pdf", uploaded_by=user.id)
+    create_chunks(db, doc.id, ["old vector"], [[1.0, 0.0, 0.0]])  # 3 numbers; the fake embedder gives 2
+    update_document_status(db, doc, "processed")
+
+    res = ask(client, user_headers)
+
+    assert res.status_code == 503
+    assert "rebuild_index" in res.json()["detail"]
+    assert llm.calls == []
+
+
+def test_a_value_error_from_inside_the_search_is_not_reported_as_an_empty_question(client, llm, policy, user_headers):
+    def broken_embedder(texts):
+        raise ValueError("torch is too old to load this model")  # what a library can raise while loading a model
+
+    app.dependency_overrides[get_embedder] = lambda: broken_embedder
+
+    with pytest.raises(ValueError, match="torch is too old"):  # it reaches the server log as it is, not as a 422 with the wrong text
+        ask(client, user_headers)
+
+
+def test_a_blank_question_is_still_a_422_with_its_own_message(client, llm, policy, user_headers):
+    res = client.post(f"{PREFIX}/query", headers=user_headers, json={"question": "   "})
+
+    assert res.status_code == 422
+
+
+def test_the_reranker_of_the_dependency_is_used(client, llm, policy, user_headers):
+    app.dependency_overrides[get_reranker] = lambda: (lambda question, passages: [0.1 if "leave" in p else 0.9 for p in passages])
+
+    body = ask(client, user_headers).json()
+
+    assert body["status"] == "answered"
+    assert "receipt" in body["citations"][0]["snippet"]  # [1] is the chunk the reranker put first

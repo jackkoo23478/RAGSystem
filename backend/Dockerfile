@@ -14,9 +14,11 @@ RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Download the embedding model now, so the first question does not have to fetch it
-# and the container also works without internet access.
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+# Download the embedding model now (about 2 GB), so the first question does not have to fetch it
+# and the container also works without internet access. The same name is what the app reads at run time.
+ARG EMBEDDING_MODEL=BAAI/bge-m3
+ENV EMBEDDING_MODEL=${EMBEDDING_MODEL}
+RUN python -c "import os; from sentence_transformers import SentenceTransformer; SentenceTransformer(os.environ['EMBEDDING_MODEL'])"
 
 COPY . .
 

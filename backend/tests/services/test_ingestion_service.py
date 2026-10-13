@@ -5,7 +5,7 @@ import pytest
 from app.features.documents.models import DocumentChunk
 from app.features.documents.repository import create_document
 from app.features.ingestion.exceptions import DocumentNotFoundError, EmptyDocumentError
-from app.features.ingestion.pipeline.chunker import chunk_text
+from app.features.ingestion.pipeline.chunker import chunk_pages
 from app.features.ingestion.service import ingest_document
 
 
@@ -32,7 +32,7 @@ def test_ingest_success_stores_chunks_and_marks_processed(db, user, upload_dir, 
 
     result = ingest_document(db, doc.id)
 
-    expected = chunk_text(text)
+    expected = [piece for _, piece in chunk_pages([(None, text)])]
     rows = chunks_of(db, doc.id)
     assert result.status == "processed"
     assert len(expected) > 1

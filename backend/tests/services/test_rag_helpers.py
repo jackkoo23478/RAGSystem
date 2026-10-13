@@ -1,6 +1,6 @@
 import pytest
 
-from app.features.rag.prompt import NO_ANSWER_TEXT, SYSTEM_PROMPT
+from app.features.rag.prompt import NO_ANSWER_TEXT, NO_ANSWER_TEXT_EN, SYSTEM_PROMPT, SYSTEM_PROMPT_EN
 from app.features.rag.service import extract_cited_numbers, is_refusal
 
 
@@ -27,6 +27,7 @@ def test_a_hijacked_answer_has_no_citations():
 def test_refusal_sentence_is_detected():
     assert is_refusal(NO_ANSWER_TEXT) is True
     assert is_refusal(f"Sorry. {NO_ANSWER_TEXT}") is True
+    assert is_refusal(NO_ANSWER_TEXT_EN) is True  # the refusal the English prompt asks for
 
 
 def test_normal_answer_is_not_a_refusal():
@@ -36,3 +37,4 @@ def test_normal_answer_is_not_a_refusal():
 def test_prompt_and_service_use_the_same_refusal_sentence():
     # if someone edits the wording in one place, the model's refusal would stop being detected
     assert NO_ANSWER_TEXT in SYSTEM_PROMPT
+    assert NO_ANSWER_TEXT_EN in SYSTEM_PROMPT_EN

@@ -195,3 +195,61 @@ def test_latency_is_recorded_when_the_model_fails(db, user, policy):
     saved = db.query(Query).one()
     assert saved.status == "failed"
     assert saved.latency_ms >= 0
+
+
+def test_the_threshold_comes_from_the_settings_when_none_is_given(db, user, policy, monkeypatch):
+    monkeypatch.setattr("app.features.rag.service.settings.rag_min_score", 1.5)  # nothing can reach this score
+
+    result = ask(db, user, FakeLLM(answer="x [1]"))
+
+    assert result.status == "no_evidence"
+
+
+def test_the_question_text_goes_to_the_search_so_that_keywords_count_too(db, user, policy, monkeypatch):
+    seen = {}
+    real = service_search = __import__("app.features.rag.service", fromlist=["search_chunks"]).search_chunks
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr("app.features.rag.service.search_chunks", spy)
+
+    ask(db, user, FakeLLM(answer="x [1]"), question="  How many leave days?  ")
+
+    assert seen["query_text"] == "How many leave days?"
+
+
+def test_hybrid_search_can_be_switched_off(db, user, policy, monkeypatch):
+    seen = {}
+    real = __import__("app.features.rag.service", fromlist=["search_chunks"]).search_chunks
+    monkeypatch.setattr("app.features.rag.service.search_chunks", lambda *a, **k: (seen.update(k), real(*a, **k))[1])
+    monkeypatch.setattr("app.features.rag.service.settings.rag_hybrid_search", False)
+
+    ask(db, user, FakeLLM(answer="x [1]"))
+
+    assert seen["query_text"] is None
+
+
+def test_simplified_characters_in_the_answer_are_shown_as_traditional(db, user, policy):
+    result = ask(db, user, FakeLLM(answer="你有14天年假,应该先申请。[1]"), question="年假有幾多日?")
+
+    assert result.status == "answered"
+    assert result.answer == "你有14天年假,應該先申請。[1]"
+    assert db.query(Query).one().answer == result.answer  # what is stored is what is shown
+
+
+def test_a_refusal_written_in_simplified_characters_is_still_a_refusal(db, user, policy):
+    result = ask(db, user, FakeLLM(answer="资料冇提供任何答案"), question="年假有幾多日?")
+
+    assert result.status == "no_evidence"
+
+
+def test_the_llm_is_given_the_chunks_in_the_order_the_reranker_chose(db, user, policy):
+    llm = FakeLLM(answer="Receipts. [1]")
+
+    ask(db, user, llm, rerank=lambda question, passages: [0.1 if "leave" in p else 0.9 for p in passages])
+
+    prompt = llm.calls[0][1]["content"]
+    assert prompt.index("Expense claims") < prompt.index("annual leave")  # [1] is now the expense chunk
+    assert db.query(QueryCitation).one().snippet == "Expense claims need a receipt."  # and [1] cites that one

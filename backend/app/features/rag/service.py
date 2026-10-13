@@ -2,11 +2,18 @@ import re
 import time
 from dataclasses import dataclass
 
+from app.core.config import settings
 from app.features.ingestion.pipeline.embedder import embed_texts
+from app.features.rag.language import to_traditional
 from app.features.rag.llm import LLMError
-from app.features.rag.prompt import NO_ANSWER_TEXT, build_prompt
+from app.features.rag.prompt import NO_ANSWER_TEXT, NO_ANSWER_TEXT_EN, build_prompt
 from app.features.rag.repository import create_query
 from app.features.rag.retrieval import search_chunks
+
+
+class EmptyQuestionError(ValueError):
+    """The question is empty or only white space. A subclass of ValueError, so code that expects ValueError still works,
+    but a router can tell it apart from a ValueError raised somewhere else (a library, a model that cannot be loaded)."""
 
 
 @dataclass
@@ -42,20 +49,26 @@ def extract_cited_numbers(answer: str, max_n: int) -> list[int]:
 
 
 def is_refusal(answer: str) -> bool:
-    return NO_ANSWER_TEXT in answer
+    return NO_ANSWER_TEXT in answer or NO_ANSWER_TEXT_EN in answer
 
 
-def answer_question(db, user_id, question, llm, embed=embed_texts, top_k=4, min_score=0.3) -> RagResult:
+def answer_question(db, user_id, question, llm, embed=embed_texts, top_k=4, min_score=None, rerank=None) -> RagResult:
+    if min_score is None:
+        min_score = settings.rag_min_score
     question = question.strip()
     if not question:
-        raise ValueError("question must not be empty")
+        raise EmptyQuestionError("question must not be empty")
 
     started = time.perf_counter()
 
     def elapsed_ms() -> int:  # measured when the query is saved, so it covers search and model
         return int((time.perf_counter() - started) * 1000)
 
-    chunks = search_chunks(db, embed([question])[0], top_k=top_k, min_score=min_score)
+    chunks = search_chunks(
+        db, embed([question])[0], top_k=top_k, min_score=min_score,
+        query_text=question if settings.rag_hybrid_search else None,  # keywords as well as meaning
+        rerank=rerank, candidates=settings.rag_candidates,  # rerank: the search takes more chunks, the best top_k are kept
+    )
 
     if not chunks:  # nothing relevant: refuse without calling the LLM
         query = create_query(db, user_id, question, status="no_evidence", latency_ms=elapsed_ms())
@@ -66,6 +79,8 @@ def answer_question(db, user_id, question, llm, embed=embed_texts, top_k=4, min_
     except LLMError:
         create_query(db, user_id, question, status="failed", latency_ms=elapsed_ms())
         raise
+
+    answer = to_traditional(answer)  # the model sometimes writes simplified characters; a prompt can not stop that reliably
 
     if is_refusal(answer):
         query = create_query(db, user_id, question, status="no_evidence", answer=answer, latency_ms=elapsed_ms())
